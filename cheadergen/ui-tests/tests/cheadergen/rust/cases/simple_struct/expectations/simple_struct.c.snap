@@ -1,5 +1,13 @@
 ---
-source: tests/tests.rs
-expression: "simple_struct.c"
-snapshot_kind: text
+source: ui-tests/src/generate/mod.rs
+assertion_line: 171
+expression: output
 ---
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+typedef struct Point Point;
+
+Point point_new(double x, double y);
