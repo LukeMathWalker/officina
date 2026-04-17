@@ -1,0 +1,21 @@
+---
+source: ui-tests/cheadergen/src/lib.rs
+assertion_line: 332
+expression: output
+---
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
+typedef unsigned long foo_t;
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
+foo_t id(foo_t x);
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif  // __cplusplus
