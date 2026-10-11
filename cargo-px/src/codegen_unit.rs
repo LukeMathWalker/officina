@@ -188,7 +188,7 @@ impl<'graph> CodegenUnit<'graph> {
 /// Retrieve all packages in the current workspace that require code generation.
 pub(crate) fn extract_codegen_units(
     pkg_graph: &PackageGraph,
-) -> Result<Vec<CodegenUnit>, Vec<anyhow::Error>> {
+) -> Result<Vec<CodegenUnit<'_>>, Vec<anyhow::Error>> {
     let workspace = pkg_graph.workspace();
     let mut codegen_units = vec![];
     let mut errors = vec![];

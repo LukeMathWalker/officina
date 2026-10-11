@@ -239,11 +239,9 @@ macro_rules! log_error {
 mod tests {
     use std::path::PathBuf;
 
-    use super::log_error;
-
     #[test]
     fn my_test() {
-        let e = std::io::Error::new(std::io::ErrorKind::Other, "My error");
+        let e = std::io::Error::other("My error");
         // Most common usage
         log_error!(e, "Yay");
         // Passing a reference to the error rather than an owned error
@@ -253,8 +251,7 @@ mod tests {
         // An error report that doesn't implement the `Error` trait, but
         // dereferences to a type that does
         log_error!(*anyhow::anyhow!("Hey"));
-        let y: Box<dyn std::error::Error> =
-            Box::new(std::io::Error::new(std::io::ErrorKind::Other, "My error"));
+        let y: Box<dyn std::error::Error> = Box::new(std::io::Error::other("My error"));
         log_error!(*y);
         // Formatting in the message
         let a = "friend";

@@ -1,6 +1,9 @@
 //! A panic hook that emits an error-level `tracing` event when a panic occurs.
 //!
 //! Check out [`panic_hook`]'s documentation for more information.
+// `PanicInfo` is a deprecated alias of `PanicHookInfo`, which requires Rust 1.81.
+// We keep the alias to avoid raising the MSRV.
+#[allow(deprecated)]
 use std::{
     backtrace::{Backtrace, BacktraceStatus},
     panic::PanicInfo,
@@ -57,6 +60,7 @@ use std::{
 ///     }));
 /// }
 /// ```
+#[allow(deprecated)]
 pub fn panic_hook(panic_info: &PanicInfo) {
     let payload = panic_info.payload();
 
