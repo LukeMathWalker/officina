@@ -35,7 +35,7 @@ each option affects.
 | 16 | Trailer (verbatim text)                                                            | `trailer`                                                                                                                       |
 
 > **Where this lives in the code.** The emission order is defined in
-> [`cheadergen_cli/src/codegen.rs`](https://github.com/LukeMathWalker/cheadergen/blob/main/cheadergen_cli/src/codegen.rs)
+> [`cheadergen_cli/src/codegen.rs`](https://github.com/LukeMathWalker/officina/blob/main/cheadergen/cheadergen_cli/src/codegen.rs)
 > (`generate_c_header`). If a discrepancy ever creeps in between this page and
 > the source, the source wins — please open an issue.
 

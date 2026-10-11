@@ -24,8 +24,8 @@
       alt="docs.rs docs" />
   </a>
   <!-- CI -->
-  <a href="https://github.com/LukeMathWalker/tracing-bunyan-formatter">
-    <img src="https://circleci.com/gh/LukeMathWalker/tracing-bunyan-formatter.svg?style=shield" alt="CircleCI badge" />
+  <a href="https://github.com/LukeMathWalker/officina/actions/workflows/ci.yml">
+    <img src="https://github.com/LukeMathWalker/officina/actions/workflows/ci.yml/badge.svg" alt="CI status" />
   </a>
 </div>
 <br/>
@@ -77,13 +77,13 @@ fn main() {
 ## Console output
 
 <div>
-<img src="https://raw.githubusercontent.com/LukeMathWalker/tracing-bunyan-formatter/master/images/ConsoleOutput.png" />
+<img src="https://raw.githubusercontent.com/LukeMathWalker/officina/main/tracing-bunyan-formatter/images/ConsoleOutput.png" />
 </div>
 <hr/>
 
 If you pipe the output in the [`bunyan`](https://github.com/trentm/node-bunyan) CLI:
 <div>
-<img src="https://raw.githubusercontent.com/LukeMathWalker/tracing-bunyan-formatter/master/images/ConsoleBunyanOutput.png" />
+<img src="https://raw.githubusercontent.com/LukeMathWalker/officina/main/tracing-bunyan-formatter/images/ConsoleBunyanOutput.png" />
 </div>
 <hr/>
 

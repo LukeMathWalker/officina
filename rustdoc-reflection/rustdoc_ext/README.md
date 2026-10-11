@@ -10,7 +10,7 @@ Extension traits for [`rustdoc-types`](https://crates.io/crates/rustdoc-types).
 kinds, a `GlobalItemId` that disambiguates items across crates) as separate
 extension traits rather than patching them into `rustdoc-types` itself.
 
-Part of the [rustdoc-reflection](https://github.com/LukeMathWalker/rustdoc-reflection)
+Part of the [rustdoc-reflection](https://github.com/LukeMathWalker/officina/tree/main/rustdoc-reflection)
 toolkit.
 
 ## License

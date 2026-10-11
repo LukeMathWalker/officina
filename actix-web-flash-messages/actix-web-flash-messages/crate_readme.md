@@ -72,9 +72,9 @@ You can provide a different message store by implementing the [`storage::FlashMe
 
 You can find examples of application using `actix-web-flash-messages` on GitHub:
 
-- [cookies](https://github.com/LukeMathWalker/actix-web-flash-messages/tree/main/examples/cookies);
-- [cookie-based sessions](https://github.com/LukeMathWalker/actix-web-flash-messages/tree/main/examples/session-cookie);
-- [Redis-based sessions](https://github.com/LukeMathWalker/actix-web-flash-messages/tree/main/examples/session-redis).
+- [cookies](https://github.com/LukeMathWalker/officina/tree/main/actix-web-flash-messages/examples/cookies);
+- [cookie-based sessions](https://github.com/LukeMathWalker/officina/tree/main/actix-web-flash-messages/examples/session-cookie);
+- [Redis-based sessions](https://github.com/LukeMathWalker/officina/tree/main/actix-web-flash-messages/examples/session-redis).
 
 ## The Structure of a Flash Message
 

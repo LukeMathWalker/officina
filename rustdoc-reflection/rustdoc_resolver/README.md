@@ -14,7 +14,7 @@ through (or preserving) type aliases, substituting generic bindings, and
 converting free functions and methods into IR callables — with no
 framework-specific dependencies.
 
-Part of the [rustdoc-reflection](https://github.com/LukeMathWalker/rustdoc-reflection)
+Part of the [rustdoc-reflection](https://github.com/LukeMathWalker/officina/tree/main/rustdoc-reflection)
 toolkit.
 
 ## License

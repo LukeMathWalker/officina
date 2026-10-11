@@ -23,7 +23,7 @@ transitively via [Pavex's][pavex] and [cheadergen's][cheadergen] test suites.
 A standalone test suite will follow sooner or later.
 
 [pavex]: https://github.com/LukeMathWalker/pavex
-[cheadergen]: https://github.com/LukeMathWalker/cheadergen
+[cheadergen]: https://github.com/LukeMathWalker/officina/tree/main/cheadergen
 
 ## License
 

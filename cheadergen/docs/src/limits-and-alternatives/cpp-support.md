@@ -38,7 +38,7 @@ the declarations directly.
 Native C++ support is a feature gap and may be addressed in
 a future release. There is no scheduled timeline; if you're interested in
 it, the
-[issue tracker](https://github.com/LukeMathWalker/cheadergen/issues) is the
+[issue tracker](https://github.com/LukeMathWalker/officina/issues) is the
 right place to express the use case or contribute.
 
 In the meantime, `--cpp-compat` is the recommended path for any project that

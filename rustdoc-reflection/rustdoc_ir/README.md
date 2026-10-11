@@ -13,7 +13,7 @@ straightforward to compare, render, and traverse. It's used by
 [`rustdoc_resolver`](https://crates.io/crates/rustdoc_resolver) as the output
 of converting `rustdoc-types` items into a stable, framework-agnostic shape.
 
-Part of the [rustdoc-reflection](https://github.com/LukeMathWalker/rustdoc-reflection)
+Part of the [rustdoc-reflection](https://github.com/LukeMathWalker/officina/tree/main/rustdoc-reflection)
 toolkit.
 
 ## License

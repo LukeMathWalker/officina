@@ -25,7 +25,7 @@ On Windows, via Powershell:
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/LukeMathWalker/cheadergen/releases/download/0.3.2/cheadergen_cli-installer.ps1 | iex"
 ```
 
-Installers download prebuilt binaries from our [GitHub releases](https://github.com/LukeMathWalker/cheadergen/releases/latest). Each archive ships with a sibling `.sha256` file you can use to verify the
+Installers download prebuilt binaries from our [GitHub releases](https://github.com/LukeMathWalker/officina/releases?q=cheadergen). Each archive ships with a sibling `.sha256` file you can use to verify the
 download.
 
 ## From crates.io

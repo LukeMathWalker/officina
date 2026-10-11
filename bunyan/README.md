@@ -30,7 +30,7 @@ I feel you!
 That's why I wrote `bunyan-rs`, a Rust port of (a subset of) the original [NodeJS bunyan CLI](https://github.com/trentm/node-bunyan).  
 
 <div>
-<img src="https://raw.githubusercontent.com/LukeMathWalker/bunyan/main/images/ConsoleBunyanOutput.png" />
+<img src="https://raw.githubusercontent.com/LukeMathWalker/officina/main/bunyan/images/ConsoleBunyanOutput.png" />
 </div>
 <hr/>
 
@@ -54,7 +54,7 @@ You can verify your installation with
 bunyan --help
 ```
 
-Alternatively, you can download a pre-built binary for your operating system from the [latest release](https://github.com/LukeMathWalker/bunyan/releases).
+Alternatively, you can download a pre-built binary for your operating system from the [latest release](https://github.com/LukeMathWalker/officina/releases?q=bunyan).
 
 ## How to use
 
