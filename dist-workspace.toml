@@ -1,15 +1,18 @@
 [workspace]
 members = ["cargo:."]
 
-# Config for 'dist'
+# Binaries and installers for the crates that opt in with `[package.metadata.dist] dist = true`.
+# The release pipeline (`.github/workflows/release.yml`) drives dist: no generated CI.
 [dist]
-# The preferred dist version to use in CI (Cargo.toml SemVer syntax)
-cargo-dist-version = "0.28.0"
-# CI backends to support
+cargo-dist-version = "0.32.0"
+dist = false
+hosting = "github"
+# Only for the build matrix in `dist plan`'s output: the release pipeline is ours, not dist's.
 ci = "github"
-# The installers to generate for each app
+allow-dirty = ["ci"]
 installers = ["shell", "powershell"]
-# Target platforms to build apps for (Rust target-triple syntax)
+install-path = "CARGO_HOME"
+install-updater = false
 targets = [
     "aarch64-apple-darwin",
     "x86_64-apple-darwin",
@@ -17,21 +20,11 @@ targets = [
     "x86_64-unknown-linux-musl",
     "x86_64-pc-windows-msvc",
 ]
-# Which actions to run on pull requests
-pr-run-mode = "plan"
-# Path that installers should place binaries in
-install-path = "CARGO_HOME"
-# Whether to install an updater program
-install-updater = false
 
+# Build Linux binaries in old-glibc (manylinux) and musl containers, for compatibility.
 [dist.github-custom-runners]
-# Workarounds to move away from ubuntu-20.04,
-# coming from https://github.com/axodotdev/cargo-dist/issues/1760#issuecomment-2769218034
 global = "ubuntu-latest"
-
 x86_64-pc-windows-msvc = "windows-latest"
-
-# Use faster built-in runners for macOS on ARM
 aarch64-apple-darwin = "macos-14"
 x86_64-apple-darwin = "macos-14"
 

@@ -1,8 +1,12 @@
+# release-plz only prepares release PRs: version bumps (with cargo-semver-checks),
+# changelogs, and version requirements of dependents.
+# Packaging, publishing, GitHub releases and tags are done by `.github/workflows/release.yml`.
 [workspace]
-changelog_update = false
+changelog_update = true
 git_release_enable = false
 git_tag_enable = false
-semver_check = false
+semver_check = true
+pr_name = "chore(workspace): release"
 pr_labels = ["release"]
 
 [changelog]
@@ -63,17 +67,27 @@ commit_parsers = [
     { body = ".*security", group = "<!-- 6 -->🛡️ Security" },
     { message = "^polish", group = "<!-- 7 -->🫧 Polishing" },
     { message = "^test", group = "<!-- 8 -->🧪 Testing" },
-    { message = "^.*", skip = true },
+    # Every release gets a section, even when it only has maintenance changes.
+    { message = "^.*", group = "<!-- 9 -->⚙️ Other" },
 ]
-
+# Changelogs follow the Markdown style cheadergen's CI checks with dprint.
 postprocessors = [
-  { pattern = '.*', replace_command = "dprint fmt --stdin md" },
+  { pattern = '.*', replace_command = "dprint fmt --config cheadergen/dprint.json --stdin md" },
 ]
 
+# cheadergen's crates are versioned together, with one changelog.
 [[package]]
 name = "cheadergen"
-changelog_update = true
+version_group = "cheadergen"
+changelog_path = "cheadergen/CHANGELOG.md"
 changelog_include = ["cheadergen_cli", "cheadergen_macros"]
-changelog_path = "CHANGELOG.md"
-git_tag_name = "{{ version }}"
-git_tag_enable = true
+
+[[package]]
+name = "cheadergen_cli"
+version_group = "cheadergen"
+changelog_update = false
+
+[[package]]
+name = "cheadergen_macros"
+version_group = "cheadergen"
+changelog_update = false
