@@ -1,4 +1,7 @@
-use actix_web::cookie::{Key, SameSite};
+// Every test needs a message store, and each store is behind a feature.
+#![cfg(any(feature = "cookies", feature = "sessions"))]
+
+use actix_web::cookie::Key;
 use actix_web::web::resource;
 use actix_web::{web, App, HttpResponse, Responder};
 use actix_web_flash_messages::{FlashMessage, FlashMessagesFramework, IncomingFlashMessages};
@@ -20,9 +23,10 @@ async fn set() -> impl Responder {
         .finish()
 }
 
-#[cfg(feature = "sessions")]
+#[cfg(feature = "cookies")]
 mod cookies {
     use super::*;
+    use actix_web::cookie::SameSite;
     use actix_web_flash_messages::storage::CookieMessageStore;
 
     #[actix_rt::test]

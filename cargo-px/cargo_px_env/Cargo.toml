@@ -7,3 +7,6 @@ description = "Bindings to retrieve the environment variables set by cargo-px"
 categories = ["development-tools::cargo-plugins"]
 repository = "https://github.com/LukeMathWalker/cargo-px"
 license = "Apache-2.0 OR MIT"
+
+[package.metadata.ci]
+platforms = ["linux", "macos", "windows"]

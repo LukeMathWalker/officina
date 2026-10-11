@@ -12,3 +12,7 @@ ui_tests_toolkit = { path = "../toolkit" }
 
 [build-dependencies]
 ui_tests_toolkit = { path = "../toolkit" }
+
+[package.metadata.ci]
+# Tested by the cheadergen workflow: the tests need a nightly toolchain, C compilers and Cython.
+tests = false

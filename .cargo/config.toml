@@ -1,0 +1,4 @@
+[alias]
+# Run the CI checks locally: `cargo ci check [<package or project>...]`.
+# `cargo ci select` shows what CI would run for the current changes.
+ci = "run --locked --quiet --package officina-ci --"

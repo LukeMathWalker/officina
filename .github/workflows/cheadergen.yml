@@ -1,0 +1,65 @@
+# cheadergen's checks beyond the generic ones, called by `ci.yml` when cheadergen is affected.
+name: cheadergen
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cheadergen
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install
+      # cheadergen generates rustdoc JSON with a pinned nightly toolchain.
+      - run: rustup toolchain install "$(cat cheadergen_cli/rust-docs-toolchain)" --profile minimal --component rust-docs-json
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: cheadergen-tests
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: just,nextest
+      # Compilation tests build the generated headers with C/C++ compilers and Cython.
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - run: uv tool install cython
+      - run: just test
+
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cheadergen
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install
+      - run: rustup toolchain install "$(cat cheadergen_cli/rust-docs-toolchain)" --profile minimal --component rust-docs-json
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: cheadergen-checks
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: just,dprint,mdbook@0.5.3
+      - name: Docs (including private items)
+        run: just doc
+      - name: UI test fixtures build without warnings
+        run: just lint-ui-tests
+      - name: Formatting (dprint)
+        run: dprint check
+      - name: User guide
+        run: mdbook build docs

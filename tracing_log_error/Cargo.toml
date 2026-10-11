@@ -12,3 +12,10 @@ tracing = { version = "0.1.41", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 anyhow = "1"
+
+[package.metadata.ci]
+# The README is generated from the crate docs. cargo-rdme resolves intra-doc links with a pinned nightly.
+commands = [
+    { name = "README is up to date", run = "cargo rdme install-rust-toolchain-for-intralinks && cargo rdme --check" },
+]
+tools = ["cargo-rdme"]

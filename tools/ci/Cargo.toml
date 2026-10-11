@@ -1,0 +1,14 @@
+[package]
+name = "officina-ci"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Selects and runs the CI checks affected by a change."
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+guppy = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tempfile = "3"

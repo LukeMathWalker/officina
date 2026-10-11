@@ -29,6 +29,8 @@ members = [
     "rustdoc-reflection/rustdoc_ir",
     "rustdoc-reflection/rustdoc_processor",
     "rustdoc-reflection/rustdoc_resolver",
+    # tools
+    "tools/ci",
     # tracing-bunyan-formatter
     "tracing-bunyan-formatter",
     # tracing-panic

@@ -27,3 +27,6 @@ windows-sys = { version = "0.59.0", features = [
     "Win32_System_Threading",
 ] }
 fs-err = "3.1.0"
+
+[package.metadata.ci]
+platforms = ["linux", "macos", "windows"]

@@ -12,3 +12,6 @@ categories = ["development-tools"]
 [dependencies]
 guppy = { workspace = true }
 rustdoc-types = { workspace = true, features = ["rustc-hash", "rkyv_0_8"] }
+
+[package.metadata.ci]
+platforms = ["linux", "macos", "windows"]

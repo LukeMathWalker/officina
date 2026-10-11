@@ -21,3 +21,6 @@ rustdoc-types = { workspace = true, features = ["rustc-hash", "rkyv_0_8"] }
 rustdoc_ext = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+
+[package.metadata.ci]
+platforms = ["linux", "macos", "windows"]

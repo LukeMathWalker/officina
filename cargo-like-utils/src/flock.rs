@@ -546,12 +546,12 @@ mod sys {
 
     pub(super) fn error_contended(err: &Error) -> bool {
         err.raw_os_error()
-            .map_or(false, |x| x == ERROR_LOCK_VIOLATION as i32)
+            .is_some_and(|x| x == ERROR_LOCK_VIOLATION as i32)
     }
 
     pub(super) fn error_unsupported(err: &Error) -> bool {
         err.raw_os_error()
-            .map_or(false, |x| x == ERROR_INVALID_FUNCTION as i32)
+            .is_some_and(|x| x == ERROR_INVALID_FUNCTION as i32)
     }
 
     pub(super) fn unlock(file: &File) -> Result<()> {

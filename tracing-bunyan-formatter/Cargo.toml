@@ -53,3 +53,14 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tracing_unstable)'] }
 [[example]]
 name = "valuable"
 required-features = ["valuable", "valuable/derive"]
+
+[package.metadata.ci]
+# `tracing` only supports `valuable` with `--cfg tracing_unstable`, so `--all-features` doesn't build.
+feature-sets = [
+    { name = "default", docs = true },
+    { name = "no-default", args = ["--no-default-features"] },
+    { name = "valuable", args = ["--features", "valuable,valuable/derive"], rustflags = "--cfg tracing_unstable" },
+]
+commands = [
+    { name = "valuable example", run = "cargo run --locked --example valuable --features valuable,valuable/derive", rustflags = "--cfg tracing_unstable" },
+]

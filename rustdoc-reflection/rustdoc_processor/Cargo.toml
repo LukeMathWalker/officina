@@ -56,3 +56,6 @@ rustc-hash = { workspace = true }
 ahash = { workspace = true }
 toml = { workspace = true }
 once_cell = { workspace = true }
+
+[package.metadata.ci]
+platforms = ["linux", "macos", "windows"]
