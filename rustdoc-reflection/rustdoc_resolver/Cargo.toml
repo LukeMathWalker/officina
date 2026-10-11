@@ -2,8 +2,8 @@
 name = "rustdoc_resolver"
 description = "Convert rustdoc_types into rustdoc_ir types"
 edition = "2024"
-repository = "https://github.com/LukeMathWalker/rustdoc-reflection"
-homepage = "https://github.com/LukeMathWalker/rustdoc-reflection"
+repository = "https://github.com/LukeMathWalker/officina"
+homepage = "https://github.com/LukeMathWalker/officina/tree/main/rustdoc-reflection"
 license = "Apache-2.0"
 version = "0.1.1"
 keywords = ["rustdoc-json", "reflection", "rustdoc"]

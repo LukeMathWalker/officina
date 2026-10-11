@@ -6,7 +6,8 @@ edition = "2018"
 
 license = "MIT/Apache-2.0"
 
-repository = "https://github.com/LukeMathWalker/tracing-bunyan-formatter"
+repository = "https://github.com/LukeMathWalker/officina"
+homepage = "https://github.com/LukeMathWalker/officina/tree/main/tracing-bunyan-formatter"
 documentation = "https://docs.rs/tracing-bunyan-formatter/"
 readme = "README.md"
 

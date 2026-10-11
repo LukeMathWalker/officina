@@ -5,7 +5,8 @@ edition = "2021"
 keywords = ["cargo", "cargo-px", "build", "scripts", "generate"]
 description = "Bindings to retrieve the environment variables set by cargo-px"
 categories = ["development-tools::cargo-plugins"]
-repository = "https://github.com/LukeMathWalker/cargo-px"
+repository = "https://github.com/LukeMathWalker/officina"
+homepage = "https://github.com/LukeMathWalker/officina/tree/main/cargo-px"
 license = "Apache-2.0 OR MIT"
 
 [package.metadata.ci]

@@ -3,7 +3,8 @@ name = "tracing_log_error"
 version = "0.1.4"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/LukeMathWalker/tracing_log_error"
+repository = "https://github.com/LukeMathWalker/officina"
+homepage = "https://github.com/LukeMathWalker/officina/tree/main/tracing_log_error"
 description = "A set of helpers to capture rich error context in tracing logs"
 keywords = ["tracing", "telemetry", "logging", "error-handling"]
 
