@@ -50,6 +50,9 @@ pub const RUN_NOTHING: &[&str] = &[
     ".github/pull_request_template.md",
     // Checked by the formatting job, which always runs.
     "dprint.json",
+    // Release configuration, validated by CI's release plan.
+    "dist-workspace.toml",
+    "release-plz.toml",
     "LICENSE-APACHE",
     "LICENSE-MIT",
     "README.md",

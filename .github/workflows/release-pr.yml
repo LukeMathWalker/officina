@@ -1,0 +1,56 @@
+# Opens or updates the release PR on every push to main: version bumps (with
+# cargo-semver-checks) and changelogs, configured in `release-plz.toml`.
+# Merging it releases the bumped crates (see `release.yml`).
+name: Release PR
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release-pr
+  cancel-in-progress: true
+
+jobs:
+  release-pr:
+    name: Release PR
+    runs-on: ubuntu-latest
+    # The PR is created with `RELEASE_PLZ_TOKEN`, not `GITHUB_TOKEN`: PRs created
+    # with `GITHUB_TOKEN` don't trigger CI.
+    permissions: {}
+    steps:
+      - name: Check for the token
+        id: token
+        env:
+          RELEASE_PLZ_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+        run: |
+          if [[ -z "$RELEASE_PLZ_TOKEN" ]]; then
+            echo "::warning::Skipped: set the RELEASE_PLZ_TOKEN secret (a token that can push branches and open PRs)."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.token.outputs.available == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          # release-plz pushes the release branch.
+          persist-credentials: true
+      - if: steps.token.outputs.available == 'true'
+        run: rustup toolchain install
+      # Formats changelogs (see `release-plz.toml`).
+      - if: steps.token.outputs.available == 'true'
+        uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: dprint
+      - if: steps.token.outputs.available == 'true'
+        uses: release-plz/action@f393a7b38aca9d9b4c58447b291dbac963901df6 # v0.5.141
+        with:
+          command: release-pr
+          config: release-plz.toml
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
