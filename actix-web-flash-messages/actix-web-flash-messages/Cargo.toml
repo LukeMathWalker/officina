@@ -30,6 +30,8 @@ time = "0.3"
 tokio = { version = "1.12.0", default-features = false, features = ["rt"] }
 
 [dev-dependencies]
+# The doc examples use `#[actix_web::main]` and routing macros.
+actix-web = { version = "4", default-features = false, features = ["macros"] }
 actix-rt = "2.2.0"
 actix-test = "0.1.5"
 actix-session = { version = "0.10", features = ["cookie-session"] }
