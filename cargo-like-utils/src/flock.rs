@@ -12,9 +12,9 @@ use std::io;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Display, Path, PathBuf};
 
+use crate::shell::{style, Shell};
 use anyhow::Context as _;
 use sys::*;
-use crate::shell::{Shell, style};
 
 /// A locked file.
 ///
@@ -207,8 +207,8 @@ impl Filesystem {
         shell: &mut Shell,
         msg: &str,
     ) -> anyhow::Result<FileLock>
-        where
-            P: AsRef<Path>,
+    where
+        P: AsRef<Path>,
     {
         let mut opts = OpenOptions::new();
         opts.read(true).write(true).truncate(true).create(true);
@@ -246,11 +246,16 @@ impl Filesystem {
     /// The returned file can be accessed to look at the path and also has read
     /// access to the underlying file. Any writes to the file will return an
     /// error.
-    pub fn open_ro_shared<P>(&self, path: P, shell: &mut Shell, msg: &str) -> anyhow::Result<FileLock>
-        where
-            P: AsRef<Path>,
+    pub fn open_ro_shared<P>(
+        &self,
+        path: P,
+        shell: &mut Shell,
+        msg: &str,
+    ) -> anyhow::Result<FileLock>
+    where
+        P: AsRef<Path>,
     {
-        let (path, f) = self.open(path.as_ref(), &OpenOptions::new().read(true), false)?;
+        let (path, f) = self.open(path.as_ref(), OpenOptions::new().read(true), false)?;
         acquire(shell, msg, &path, &|| try_lock_shared(&f), &|| {
             lock_shared(&f)
         })?;
@@ -393,8 +398,7 @@ fn acquire(
         return Ok(());
     }
     let msg = format!("waiting for file lock on {}", msg);
-    shell
-        .status_with_color("Blocking", &msg, &style::NOTE)?;
+    shell.status_with_color("Blocking", &msg, &style::NOTE)?;
 
     lock_block().with_context(|| format!("failed to lock file: {}", path.display()))?;
     Ok(())
@@ -450,7 +454,7 @@ mod sys {
     }
 
     pub(super) fn error_contended(err: &Error) -> bool {
-        err.raw_os_error().map_or(false, |x| x == libc::EWOULDBLOCK)
+        err.raw_os_error().is_some_and(|x| x == libc::EWOULDBLOCK)
     }
 
     pub(super) fn error_unsupported(err: &Error) -> bool {

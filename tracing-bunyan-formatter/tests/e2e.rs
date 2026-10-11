@@ -121,7 +121,7 @@ fn encode_f64_as_numbers() {
         if record
             .get("msg")
             .and_then(Value::as_str)
-            .map_or(false, |msg| msg.contains("testing f64"))
+            .is_some_and(|msg| msg.contains("testing f64"))
         {
             let observed_value = record.get("f64_field").and_then(|v| v.as_f64());
             assert_some_eq!(observed_value, f64_value);
@@ -155,7 +155,7 @@ fn elapsed_milliseconds_are_present_on_exit_span() {
         if record
             .get("msg")
             .and_then(Value::as_str)
-            .map_or(false, |msg| msg.ends_with("END]"))
+            .is_some_and(|msg| msg.ends_with("END]"))
         {
             assert!(record.get("elapsed_milliseconds").is_some());
         }
@@ -175,8 +175,8 @@ fn skip_fields() {
 fn skipping_core_fields_is_not_allowed() {
     let skipped_fields = vec!["level"];
 
-    let result = BunyanFormattingLayer::new("test".into(), || vec![])
-        .skip_fields(skipped_fields.into_iter());
+    let result =
+        BunyanFormattingLayer::new("test".into(), Vec::new).skip_fields(skipped_fields.into_iter());
 
     match result {
         Err(err) => {

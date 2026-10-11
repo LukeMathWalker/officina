@@ -15,6 +15,8 @@ pub struct LogRecord<'a> {
     /// Thereafter, starting with 1, this will be incremented if there is any backward incompatible
     /// change to the log record format.
     #[serde(rename = "v")]
+    // Never read, but deserializing it rejects records that lack a format version.
+    #[allow(dead_code)]
     pub version: u8,
     /// See `LogLevel`
     pub level: u8,

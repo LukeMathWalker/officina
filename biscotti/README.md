@@ -13,9 +13,9 @@ You can use `biscotti` to handle cookies in your server.
 
 It has support for:
 
-- Handling cookies attached to incoming requests, via `RequestCookies`
-- Building cookies for outgoing responses, via `ResponseCookies`
-- Encrypting, signing or encoding cookies, via `Processor`
+- Handling cookies attached to incoming requests, via [`RequestCookies`]
+- Building cookies for outgoing responses, via [`ResponseCookies`]
+- Encrypting, signing or encoding cookies, via [`Processor`]
 
 In particular:
 
@@ -94,6 +94,9 @@ Copyright (c) 2014 Alex Crichton].
 `biscotti` started as a `cookie` fork and it includes non-negligible portions of its
 code.
 
+[`Processor`]: https://docs.rs/biscotti/latest/biscotti/processor/struct.Processor.html
+[`RequestCookies`]: https://docs.rs/biscotti/latest/biscotti/request_cookies/struct.RequestCookies.html
+[`ResponseCookies`]: https://docs.rs/biscotti/latest/biscotti/response_cookies/struct.ResponseCookies.html
 
 <!-- cargo-rdme end -->
 
