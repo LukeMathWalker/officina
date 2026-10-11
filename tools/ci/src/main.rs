@@ -54,8 +54,9 @@ enum Command {
 enum ReleaseStep {
     /// Show what would be released, and why other crates aren't.
     Plan {
-        /// Append the plan (and cargo-dist's build matrix) to this file using
-        /// the GitHub Actions output format (usually `$GITHUB_OUTPUT`).
+        /// Append the plan to this file using the GitHub Actions output format
+        /// (usually `$GITHUB_OUTPUT`): whether there's anything to release,
+        /// cargo-dist's build matrix, and the crates shipping binaries.
         #[arg(long)]
         github_output: Option<PathBuf>,
     },
@@ -225,10 +226,10 @@ fn load_graph(dir: &Path) -> anyhow::Result<guppy::graph::PackageGraph> {
 }
 
 fn release(repository: &Path, step: ReleaseStep) -> anyhow::Result<()> {
-    let graph = load_graph(repository)?;
+    // `stage` and `tag` only need the manifest and GitHub: no Rust toolchain.
     match step {
         ReleaseStep::Plan { github_output } => {
-            let (plan, _) = steps::plan(repository, &graph)?;
+            let (plan, _) = steps::plan(repository, &load_graph(repository)?)?;
             steps::print_plan(&plan);
             if let Some(path) = github_output {
                 let dist_matrix = steps::dist_matrix(repository, &plan)?;
@@ -239,10 +240,23 @@ fn release(repository: &Path, step: ReleaseStep) -> anyhow::Result<()> {
                     .with_context(|| format!("failed to open `{}`", path.display()))?;
                 writeln!(file, "has-release={}", !plan.crates.is_empty())?;
                 writeln!(file, "dist-matrix={dist_matrix}")?;
+                let dist_releases: Vec<_> = plan
+                    .releases
+                    .iter()
+                    .filter_map(|release| {
+                        let krate = release.dist.as_ref()?;
+                        Some(serde_json::json!({ "crate": krate, "tag": release.tag }))
+                    })
+                    .collect();
+                writeln!(
+                    file,
+                    "dist-releases={}",
+                    serde_json::json!({ "include": dist_releases })
+                )?;
             }
         }
         ReleaseStep::Package { out } => {
-            steps::package(repository, &graph, &repository.join(out))?;
+            steps::package(repository, &load_graph(repository)?, &repository.join(out))?;
         }
         ReleaseStep::Stage {
             manifest,
@@ -257,12 +271,8 @@ fn release(repository: &Path, step: ReleaseStep) -> anyhow::Result<()> {
             )?;
         }
         ReleaseStep::Publish { manifest, dry_run } => {
-            steps::publish(
-                repository,
-                &graph,
-                &steps::read_manifest(&manifest)?,
-                dry_run,
-            )?;
+            let manifest = steps::read_manifest(&manifest)?;
+            steps::publish(repository, &load_graph(repository)?, &manifest, dry_run)?;
         }
         ReleaseStep::Tag { manifest, dry_run } => {
             steps::tag(repository, &steps::read_manifest(&manifest)?, dry_run)?;
