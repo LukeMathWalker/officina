@@ -1,0 +1,1055 @@
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use guppy::PackageId;
+use rustdoc_ir::{GenericArgument, PathType, Type};
+use rustdoc_processor::GlobalItemId;
+
+use crate::Collection;
+use crate::diagnostic::DiagnosticSink;
+use crate::indexing::{FieldAnnotation, RenameRule};
+use rustdoc_resolver::{GenericBindings, TypeAliasResolution, resolve_type};
+use rustdoc_types::{Attribute, AttributeRepr, ItemEnum, ReprKind, StructKind, VariantKind};
+
+use super::type_collection::{
+    CEnumRepr, CEnumVariant, CFieldlessEnumDef, CIdentifier, CStructDef, CStructField,
+    CTaggedUnionDef, CTaggedVariant, CTaggedVariantBody, CTypeKind, CTypedefDef, CUnionDef,
+    ReprIntType, TypeUsage, is_zst_type,
+};
+use super::type_transform;
+
+/// Attempt to resolve a directly-used type into a full definition.
+///
+/// Returns an opaque variant (with a warning on stderr) if the type cannot
+/// be fully defined — e.g. missing `rustdoc_id`, not `#[repr(C)]`, etc.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn resolve_type_kind(
+    name: &str,
+    path_type: &PathType,
+    collection: &Collection,
+    enum_prefix: Option<String>,
+    rename_all: Option<RenameRule>,
+    rename_all_fields: Option<RenameRule>,
+    usage: TypeUsage,
+    diagnostics: &mut DiagnosticSink,
+) -> anyhow::Result<CTypeKind> {
+    let Some(id) = &path_type.rustdoc_id else {
+        diagnostics
+            .warning(format!("type `{name}` has no rustdoc ID"))
+            .with_help("emitting forward declaration")
+            .emit();
+        return Ok(CTypeKind::OpaqueStruct);
+    };
+
+    let global_id = GlobalItemId::new(*id, path_type.package_id.clone());
+    let item = collection.get_item_by_global_type_id(&global_id);
+    let annotations = collection.get_annotated_items(&path_type.package_id);
+
+    // Extract field_names annotation for this item, if any.
+    let field_names = annotations
+        .and_then(|ann| ann.get(id))
+        .and_then(|a| a.field_names.as_deref());
+
+    let mut kind = match &item.inner {
+        ItemEnum::Struct(struct_def) => resolve_struct_kind(
+            name,
+            struct_def,
+            &item.attrs,
+            path_type,
+            collection,
+            field_names,
+            rename_all,
+            usage,
+            diagnostics,
+        ),
+        ItemEnum::Union(union_def) => resolve_union_kind(
+            name,
+            union_def,
+            &item.attrs,
+            path_type,
+            collection,
+            rename_all,
+            usage,
+            diagnostics,
+        ),
+        ItemEnum::Enum(enum_def) => resolve_enum_kind(
+            name,
+            enum_def,
+            &item.attrs,
+            path_type,
+            collection,
+            enum_prefix,
+            rename_all,
+            rename_all_fields,
+            usage,
+            diagnostics,
+        ),
+        ItemEnum::TypeAlias(type_alias) => {
+            resolve_type_alias_kind(name, type_alias, path_type, collection)
+        }
+        _ => {
+            diagnostics
+                .warning(format!(
+                    "type `{name}` is not a struct, union, enum, or type alias"
+                ))
+                .with_span_if(item.span.as_ref())
+                .with_help("emitting forward declaration")
+                .emit();
+            Ok(CTypeKind::OpaqueStruct)
+        }
+    }?;
+    type_transform::simplify_kind(&mut kind, collection);
+    apply_const_ptr_annotations(&mut kind, name, collection, diagnostics);
+    Ok(kind)
+}
+
+fn apply_const_ptr_annotations(
+    kind: &mut CTypeKind,
+    parent_type_name: &str,
+    collection: &Collection,
+    diagnostics: &mut DiagnosticSink,
+) {
+    match kind {
+        CTypeKind::Struct(def) => {
+            for field in &mut def.fields {
+                apply_const_ptr_to_field(field, parent_type_name, collection, diagnostics);
+            }
+        }
+        CTypeKind::Union(def) => {
+            for field in &mut def.fields {
+                apply_const_ptr_to_field(field, parent_type_name, collection, diagnostics);
+            }
+        }
+        CTypeKind::TaggedUnion(def) => {
+            for variant in &mut def.variants {
+                if let Some(body) = &mut variant.body {
+                    for field in &mut body.fields {
+                        apply_const_ptr_to_field(field, parent_type_name, collection, diagnostics);
+                    }
+                }
+            }
+        }
+        CTypeKind::Typedef(_)
+        | CTypeKind::OpaqueStruct
+        | CTypeKind::OpaqueUnion
+        | CTypeKind::FieldlessEnum(_) => {}
+    }
+}
+
+fn apply_const_ptr_to_field(
+    field: &mut CStructField,
+    parent_type_name: &str,
+    collection: &Collection,
+    diagnostics: &mut DiagnosticSink,
+) {
+    if !field.const_ptr {
+        return;
+    }
+
+    match &mut field.type_ {
+        Type::RawPointer(pointer) => {
+            pointer.is_mutable = false;
+            return;
+        }
+        Type::Reference(reference) => {
+            reference.is_mutable = false;
+            return;
+        }
+        _ => {}
+    }
+
+    let span = field
+        .rustdoc_id
+        .as_ref()
+        .map(|id| collection.get_item_by_global_type_id(id))
+        .and_then(|item| item.span.clone());
+    diagnostics
+        .error(format!(
+            "field `{}::{}` is annotated with `#[cheadergen(const_ptr)]`, but its resolved C type is not a pointer",
+            parent_type_name,
+            field.name.as_str()
+        ))
+        .with_span_if(span.as_ref())
+        .with_label("not a pointer field")
+        .with_help("remove `const_ptr` or use it on a field that lowers to a C pointer type")
+        .emit();
+}
+
+/// Build generic bindings for a type with type parameters, returning
+/// `Err(())` (with a warning) if the type cannot be monomorphized.
+/// Callers map the error to the appropriate opaque variant.
+fn setup_generic_bindings(
+    name: &str,
+    generics: &rustdoc_types::Generics,
+    path_type: &PathType,
+    span: Option<&rustdoc_types::Span>,
+    diagnostics: &mut DiagnosticSink,
+) -> Result<GenericBindings, ()> {
+    let mut bindings = if has_generic_params(generics) {
+        match build_generic_bindings(generics, &path_type.generic_arguments) {
+            Some(bindings) => bindings,
+            None => {
+                diagnostics
+                    .warning(format!("type `{name}` has generic type parameters"))
+                    .with_span_if(span)
+                    .with_help("emitting forward declaration")
+                    .emit();
+                return Err(());
+            }
+        }
+    } else {
+        GenericBindings::default()
+    };
+
+    // Bind `Self` to the containing type so that `*const Self` / `*mut Self`
+    // fields resolve to the correct concrete type.
+    bindings
+        .types
+        .insert("Self".into(), Type::Path(path_type.clone()));
+
+    Ok(bindings)
+}
+
+/// Outcome of inspecting the `#[repr(...)]` attributes on a struct or union.
+#[derive(Debug)]
+enum ReprValidation {
+    /// `#[repr(C)]`, optionally combined with `align(N)`.
+    ReprC { align: Option<u64> },
+    /// `#[repr(transparent)]` (without `align(N)`, which the validator rejects).
+    ReprTransparent,
+    /// Neither C nor transparent, and no rejected modifiers — caller decides
+    /// whether to warn or stay silent.
+    NotCCompatible,
+    /// A disallowed combination was found; an error has already been emitted
+    /// to the sink. Caller should fall back to opaque to keep analysis going.
+    Errored,
+}
+
+/// Inspect the `#[repr(...)]` attributes on a struct or union, collapsing
+/// multiple repr attributes into a single decision and rejecting modifiers
+/// that cheadergen cannot honor.
+///
+/// Emits errors to `diagnostics` for: `#[repr(packed(...))]` (any form),
+/// `#[repr(align(N))]` without `#[repr(C)]`, and `#[repr(transparent, align(N))]`.
+fn validate_compound_repr(
+    name: &str,
+    kind_label: &str,
+    attrs: &[Attribute],
+    span: Option<&rustdoc_types::Span>,
+    diagnostics: &mut DiagnosticSink,
+) -> ReprValidation {
+    let mut has_c = false;
+    let mut has_transparent = false;
+    let mut align: Option<u64> = None;
+    let mut packed: Option<u64> = None;
+
+    for attr in attrs {
+        let Attribute::Repr(AttributeRepr {
+            kind,
+            align: a,
+            packed: p,
+            ..
+        }) = attr
+        else {
+            continue;
+        };
+        match kind {
+            ReprKind::C => has_c = true,
+            ReprKind::Transparent => has_transparent = true,
+            _ => {}
+        }
+        if let Some(value) = a {
+            align = Some(align.map_or(*value, |existing| existing.max(*value)));
+        }
+        if let Some(value) = p {
+            packed = Some(packed.map_or(*value, |existing| existing.min(*value)));
+        }
+    }
+
+    if packed.is_some() {
+        diagnostics
+            .error(format!(
+                "{kind_label} `{name}` uses `#[repr(packed)]`, which cheadergen does not yet support"
+            ))
+            .with_span_if(span)
+            .with_label("`#[repr(packed)]` not supported".to_string())
+            .with_help(
+                "support for packed types is planned; remove the attribute or open an issue if you need it",
+            )
+            .emit();
+        return ReprValidation::Errored;
+    }
+
+    if has_transparent && align.is_some() {
+        diagnostics
+            .error(format!(
+                "{kind_label} `{name}` combines `#[repr(transparent)]` with `#[repr(align(N))]`"
+            ))
+            .with_span_if(span)
+            .with_label("transparent + align not supported".to_string())
+            .with_help(
+                "cheadergen emits transparent types as C typedefs, which cannot carry an alignment",
+            )
+            .emit();
+        return ReprValidation::Errored;
+    }
+
+    if has_transparent {
+        return ReprValidation::ReprTransparent;
+    }
+
+    if has_c {
+        return ReprValidation::ReprC { align };
+    }
+
+    if align.is_some() {
+        diagnostics
+            .error(format!(
+                "{kind_label} `{name}` uses `#[repr(align(N))]` without `#[repr(C)]`"
+            ))
+            .with_span_if(span)
+            .with_label("`align(N)` without `#[repr(C)]`".to_string())
+            .with_help(
+                "add `#[repr(C)]` alongside `align(N)` so cheadergen can emit a layout-stable definition",
+            )
+            .emit();
+        return ReprValidation::Errored;
+    }
+
+    ReprValidation::NotCCompatible
+}
+
+/// Resolve a struct into a `CTypeKind`.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "explicit threading of resolution context"
+)]
+fn resolve_struct_kind(
+    name: &str,
+    struct_def: &rustdoc_types::Struct,
+    attrs: &[Attribute],
+    path_type: &PathType,
+    collection: &Collection,
+    field_names: Option<&[String]>,
+    rename_all: Option<RenameRule>,
+    usage: TypeUsage,
+    diagnostics: &mut DiagnosticSink,
+) -> anyhow::Result<CTypeKind> {
+    let global_id_for_span =
+        GlobalItemId::new(path_type.rustdoc_id.unwrap(), path_type.package_id.clone());
+    let item_for_span = collection.get_item_by_global_type_id(&global_id_for_span);
+    let span_for_diag = item_for_span.span.as_ref();
+
+    let (is_repr_transparent, align) =
+        match validate_compound_repr(name, "struct", attrs, span_for_diag, diagnostics) {
+            ReprValidation::ReprC { align } => (false, align),
+            ReprValidation::ReprTransparent => (true, None),
+            ReprValidation::Errored => return Ok(CTypeKind::OpaqueStruct),
+            ReprValidation::NotCCompatible => {
+                if usage == TypeUsage::ByValue {
+                    diagnostics
+                        .warning(format!("type `{name}` is not #[repr(C)]"))
+                        .with_span_if(span_for_diag)
+                        .with_label("not #[repr(C)]".to_string())
+                        .with_help("emitting opaque forward declaration")
+                        .emit();
+                }
+                return Ok(CTypeKind::OpaqueStruct);
+            }
+        };
+
+    let generic_bindings = match setup_generic_bindings(
+        name,
+        &struct_def.generics,
+        path_type,
+        span_for_diag,
+        diagnostics,
+    ) {
+        Ok(bindings) => bindings,
+        Err(()) => return Ok(CTypeKind::OpaqueStruct),
+    };
+
+    let fields = resolve_struct_fields(
+        struct_def,
+        &generic_bindings,
+        path_type,
+        collection,
+        field_names,
+        rename_all,
+    )?;
+    if is_repr_transparent {
+        match fields.len() {
+            0 => Ok(CTypeKind::Struct(CStructDef {
+                fields,
+                align: None,
+            })),
+            1 => Ok(CTypeKind::Typedef(CTypedefDef {
+                inner: fields.into_iter().next().unwrap().type_,
+            })),
+            n => {
+                diagnostics
+                    .warning(format!(
+                        "repr(transparent) type `{name}` has {n} non-ZST fields"
+                    ))
+                    .with_span_if(span_for_diag)
+                    .with_help("emitting opaque forward declaration")
+                    .emit();
+                Ok(CTypeKind::OpaqueStruct)
+            }
+        }
+    } else {
+        Ok(CTypeKind::Struct(CStructDef { fields, align }))
+    }
+}
+
+/// Resolve the non-ZST fields of a struct.
+fn resolve_struct_fields(
+    struct_def: &rustdoc_types::Struct,
+    generic_bindings: &rustdoc_resolver::GenericBindings,
+    path_type: &PathType,
+    collection: &Collection,
+    field_names: Option<&[String]>,
+    rename_all: Option<RenameRule>,
+) -> anyhow::Result<Vec<CStructField>> {
+    match &struct_def.kind {
+        StructKind::Plain { fields, .. } => resolve_plain_fields(
+            fields,
+            generic_bindings,
+            &path_type.package_id,
+            collection,
+            rename_all,
+        ),
+        StructKind::Tuple(fields) => resolve_tuple_fields(
+            fields,
+            generic_bindings,
+            &path_type.package_id,
+            collection,
+            field_names,
+        ),
+        StructKind::Unit => Ok(Vec::new()),
+    }
+}
+
+/// If `path` refers to a `#[repr(transparent)]` struct with exactly one non-ZST
+/// field, returns that field's type. Returns `None` otherwise.
+pub(crate) fn transparent_inner_type_for_path(
+    path: &PathType,
+    collection: &Collection,
+) -> Option<Type> {
+    let id = path.rustdoc_id.as_ref()?;
+    let global_id = GlobalItemId::new(*id, path.package_id.clone());
+    let item = collection.get_item_by_global_type_id(&global_id);
+    let ItemEnum::Struct(struct_def) = &item.inner else {
+        return None;
+    };
+
+    let is_transparent = item.attrs.iter().any(|attr| {
+        matches!(
+            attr,
+            Attribute::Repr(AttributeRepr {
+                kind: ReprKind::Transparent,
+                ..
+            })
+        )
+    });
+    if !is_transparent {
+        return None;
+    }
+
+    // Use a throwaway sink for this internal query — warnings here are
+    // not actionable by the user.
+    let mut throwaway = DiagnosticSink::new(PathBuf::new(), false);
+    let generic_bindings = setup_generic_bindings(
+        path.base_type.last().map(String::as_str).unwrap_or("?"),
+        &struct_def.generics,
+        path,
+        None,
+        &mut throwaway,
+    )
+    .ok()?;
+
+    resolve_transparent_inner_type(struct_def, &generic_bindings, path, collection)
+}
+
+/// Resolve the single non-ZST field type of a `#[repr(transparent)]` struct,
+/// if it has exactly one such field. Returns `None` for zero or multiple non-ZST fields.
+fn resolve_transparent_inner_type(
+    struct_def: &rustdoc_types::Struct,
+    generic_bindings: &rustdoc_resolver::GenericBindings,
+    path_type: &PathType,
+    collection: &Collection,
+) -> Option<Type> {
+    let c_fields = resolve_struct_fields(
+        struct_def,
+        generic_bindings,
+        path_type,
+        collection,
+        None,
+        None,
+    )
+    .ok()?;
+    if c_fields.len() == 1 {
+        Some(c_fields.into_iter().next().unwrap().type_)
+    } else {
+        None
+    }
+}
+
+/// Resolve a Rust `type` alias into a `CTypeKind::Typedef`.
+fn resolve_type_alias_kind(
+    name: &str,
+    type_alias: &rustdoc_types::TypeAlias,
+    path_type: &PathType,
+    collection: &Collection,
+) -> anyhow::Result<CTypeKind> {
+    // Type alias resolution doesn't emit warnings — it either works or errors.
+    let mut throwaway = DiagnosticSink::new(PathBuf::new(), false);
+    let generic_bindings =
+        match setup_generic_bindings(name, &type_alias.generics, path_type, None, &mut throwaway) {
+            Ok(bindings) => bindings,
+            Err(()) => return Ok(CTypeKind::OpaqueStruct),
+        };
+
+    // Preserve nested aliases so that `std::ffi::c_*` (and other foreign
+    // typedefs whose identity matters in C) survive into the emitted typedef
+    // body. Codegen consults `ffi_primitive_to_c` to map e.g. `c_char` back
+    // to `char`; that mapping only fires when the type is still a
+    // `Type::TypeAlias`, not after `ResolveThrough` has collapsed it to its
+    // leaf primitive.
+    let resolved = resolve_type(
+        &type_alias.type_,
+        &path_type.package_id,
+        collection,
+        &generic_bindings,
+        TypeAliasResolution::Preserve,
+    )
+    .map_err(|e| anyhow::anyhow!("Failed to resolve type alias `{name}`: {}", Arc::new(e)))?;
+
+    Ok(CTypeKind::Typedef(CTypedefDef { inner: resolved }))
+}
+
+/// Resolve a union into a `CTypeKind`.
+#[allow(clippy::too_many_arguments)]
+fn resolve_union_kind(
+    name: &str,
+    union_def: &rustdoc_types::Union,
+    attrs: &[Attribute],
+    path_type: &PathType,
+    collection: &Collection,
+    rename_all: Option<RenameRule>,
+    usage: TypeUsage,
+    diagnostics: &mut DiagnosticSink,
+) -> anyhow::Result<CTypeKind> {
+    let global_id_for_span =
+        GlobalItemId::new(path_type.rustdoc_id.unwrap(), path_type.package_id.clone());
+    let item_for_span = collection.get_item_by_global_type_id(&global_id_for_span);
+    let span_for_diag = item_for_span.span.as_ref();
+
+    let align = match validate_compound_repr(name, "union", attrs, span_for_diag, diagnostics) {
+        ReprValidation::ReprC { align } => align,
+        ReprValidation::Errored => return Ok(CTypeKind::OpaqueUnion),
+        // Unions can't legally be `#[repr(transparent)]`; treat as "not C-compatible".
+        ReprValidation::ReprTransparent | ReprValidation::NotCCompatible => {
+            if usage == TypeUsage::ByValue {
+                diagnostics
+                    .warning(format!("union `{name}` is not #[repr(C)]"))
+                    .with_span_if(span_for_diag)
+                    .with_label("not #[repr(C)]".to_string())
+                    .with_help("emitting opaque forward declaration")
+                    .emit();
+            }
+            return Ok(CTypeKind::OpaqueUnion);
+        }
+    };
+
+    let generic_bindings = match setup_generic_bindings(
+        name,
+        &union_def.generics,
+        path_type,
+        span_for_diag,
+        diagnostics,
+    ) {
+        Ok(bindings) => bindings,
+        Err(()) => return Ok(CTypeKind::OpaqueUnion),
+    };
+
+    let c_fields = resolve_plain_fields(
+        &union_def.fields,
+        &generic_bindings,
+        &path_type.package_id,
+        collection,
+        rename_all,
+    )?;
+    Ok(CTypeKind::Union(CUnionDef {
+        fields: c_fields,
+        align,
+    }))
+}
+
+/// Returns true if the generics contain unbound type or const parameters.
+fn has_generic_params(generics: &rustdoc_types::Generics) -> bool {
+    generics.params.iter().any(|p| {
+        matches!(
+            p.kind,
+            rustdoc_types::GenericParamDefKind::Type { .. }
+                | rustdoc_types::GenericParamDefKind::Const { .. }
+        )
+    })
+}
+
+/// Build a [`GenericBindings`] map pairing each type/const parameter in `generics`
+/// with the corresponding concrete argument from `generic_args`.
+///
+/// Returns `None` if the struct has type parameters but no (or insufficient)
+/// concrete arguments were provided — the caller should treat the type as opaque.
+fn build_generic_bindings(
+    generics: &rustdoc_types::Generics,
+    generic_args: &[GenericArgument],
+) -> Option<GenericBindings> {
+    let type_param_names: Vec<&str> = generics
+        .params
+        .iter()
+        .filter_map(|p| match &p.kind {
+            rustdoc_types::GenericParamDefKind::Type { .. } => Some(p.name.as_str()),
+            _ => None,
+        })
+        .collect();
+
+    let const_param_names: Vec<&str> = generics
+        .params
+        .iter()
+        .filter_map(|p| match &p.kind {
+            rustdoc_types::GenericParamDefKind::Const { .. } => Some(p.name.as_str()),
+            _ => None,
+        })
+        .collect();
+
+    let type_args: Vec<&Type> = generic_args
+        .iter()
+        .filter_map(|arg| match arg {
+            GenericArgument::TypeParameter(t) => Some(t),
+            _ => None,
+        })
+        .collect();
+
+    let const_args: Vec<&str> = generic_args
+        .iter()
+        .filter_map(|arg| match arg {
+            GenericArgument::Const(c) => Some(c.value.as_str()),
+            _ => None,
+        })
+        .collect();
+
+    if type_param_names.is_empty() && const_param_names.is_empty() {
+        return Some(GenericBindings::default());
+    }
+    if type_args.len() != type_param_names.len() || const_args.len() != const_param_names.len() {
+        return None;
+    }
+
+    let mut bindings = GenericBindings::default();
+    for (name, ty) in type_param_names.into_iter().zip(type_args) {
+        bindings.types.insert(name.to_owned(), ty.clone());
+    }
+    for (name, value) in const_param_names.into_iter().zip(const_args) {
+        bindings.consts.insert(name.to_owned(), value.to_owned());
+    }
+    Some(bindings)
+}
+
+/// Outcome of inspecting the `#[repr(...)]` attributes on an enum.
+#[derive(Debug)]
+enum EnumReprValidation {
+    /// A valid C-compatible repr.
+    Valid(Option<CEnumRepr>),
+    /// A rejected modifier (`align(N)` or `packed`) was found; an error has
+    /// already been emitted to the sink.
+    Errored,
+}
+
+/// Extract a `CEnumRepr` from the item's attributes.
+///
+/// Returns `Valid(None)` if the enum has no C-compatible repr (caller decides
+/// whether to warn). Emits errors via `diagnostics` and returns `Errored` when
+/// `align(N)` or `packed` modifiers are present — both are rejected for enums
+/// in the initial release.
+fn extract_enum_repr(
+    name: &str,
+    attrs: &[Attribute],
+    span: Option<&rustdoc_types::Span>,
+    diagnostics: &mut DiagnosticSink,
+) -> anyhow::Result<EnumReprValidation> {
+    let mut chosen: Option<CEnumRepr> = None;
+    for attr in attrs {
+        let Attribute::Repr(repr) = attr else {
+            continue;
+        };
+        if repr.packed.is_some() {
+            diagnostics
+                .error(format!(
+                    "enum `{name}` uses `#[repr(packed)]`, which cheadergen does not yet support"
+                ))
+                .with_span_if(span)
+                .with_label("`#[repr(packed)]` not supported".to_string())
+                .with_help(
+                    "support for packed types is planned; remove the attribute or open an issue if you need it",
+                )
+                .emit();
+            return Ok(EnumReprValidation::Errored);
+        }
+        if repr.align.is_some() {
+            diagnostics
+                .error(format!(
+                    "enum `{name}` uses `#[repr(align(N))]`, which cheadergen does not yet support for enums"
+                ))
+                .with_span_if(span)
+                .with_label("`align(N)` on enums not supported".to_string())
+                .with_help(
+                    "support for aligned enums is planned; remove the `align(N)` modifier or open an issue if you need it",
+                )
+                .emit();
+            return Ok(EnumReprValidation::Errored);
+        }
+        if chosen.is_none() {
+            match (&repr.kind, &repr.int) {
+                (ReprKind::C, None) => chosen = Some(CEnumRepr::C),
+                (ReprKind::C, Some(int_str)) => {
+                    let int_type = ReprIntType::parse(int_str)?;
+                    chosen = Some(CEnumRepr::Int {
+                        is_repr_c: true,
+                        int_type,
+                    });
+                }
+                (ReprKind::Rust, Some(int_str)) => {
+                    let int_type = ReprIntType::parse(int_str)?;
+                    chosen = Some(CEnumRepr::Int {
+                        is_repr_c: false,
+                        int_type,
+                    });
+                }
+                _ => {}
+            }
+        }
+    }
+    Ok(EnumReprValidation::Valid(chosen))
+}
+
+/// Resolve an enum into a `CTypeKind`.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "explicit threading of resolution context"
+)]
+fn resolve_enum_kind(
+    name: &str,
+    enum_def: &rustdoc_types::Enum,
+    attrs: &[Attribute],
+    path_type: &PathType,
+    collection: &Collection,
+    enum_prefix: Option<String>,
+    rename_all: Option<RenameRule>,
+    rename_all_fields: Option<RenameRule>,
+    usage: TypeUsage,
+    diagnostics: &mut DiagnosticSink,
+) -> anyhow::Result<CTypeKind> {
+    let global_id_for_repr =
+        GlobalItemId::new(path_type.rustdoc_id.unwrap(), path_type.package_id.clone());
+    let item_for_repr = collection.get_item_by_global_type_id(&global_id_for_repr);
+    let repr_span = item_for_repr.span.as_ref();
+    let repr = match extract_enum_repr(name, attrs, repr_span, diagnostics)? {
+        EnumReprValidation::Errored => return Ok(CTypeKind::OpaqueStruct),
+        EnumReprValidation::Valid(Some(repr)) => repr,
+        EnumReprValidation::Valid(None) => {
+            // Only warn when reached by value; opaque is the right output for
+            // pointer-only uses.
+            if usage == TypeUsage::ByValue {
+                diagnostics
+                    .warning(format!("enum `{name}` has no C-compatible repr"))
+                    .with_span_if(repr_span)
+                    .with_help("emitting opaque forward declaration")
+                    .emit();
+            }
+            return Ok(CTypeKind::OpaqueStruct);
+        }
+    };
+
+    let global_id_for_span =
+        GlobalItemId::new(path_type.rustdoc_id.unwrap(), path_type.package_id.clone());
+    let item_for_span = collection.get_item_by_global_type_id(&global_id_for_span);
+    let generic_bindings = match setup_generic_bindings(
+        name,
+        &enum_def.generics,
+        path_type,
+        item_for_span.span.as_ref(),
+        diagnostics,
+    ) {
+        Ok(bindings) => bindings,
+        Err(()) => return Ok(CTypeKind::OpaqueStruct),
+    };
+
+    let package_id = &path_type.package_id;
+
+    // Classify: all variants plain → fieldless, otherwise → tagged union.
+    let mut all_plain = true;
+    for variant_id in &enum_def.variants {
+        let global_id = GlobalItemId::new(*variant_id, package_id.clone());
+        let variant_item = collection.get_item_by_global_type_id(&global_id);
+        let ItemEnum::Variant(variant) = &variant_item.inner else {
+            anyhow::bail!(
+                "Expected Variant for enum `{name}` variant id {:?}",
+                variant_id
+            );
+        };
+        if !matches!(variant.kind, VariantKind::Plain) {
+            all_plain = false;
+            break;
+        }
+    }
+
+    if all_plain {
+        resolve_fieldless_enum(
+            name,
+            enum_def,
+            repr,
+            package_id,
+            collection,
+            enum_prefix,
+            rename_all,
+        )
+    } else {
+        resolve_tagged_union(
+            name,
+            enum_def,
+            repr,
+            &generic_bindings,
+            package_id,
+            collection,
+            enum_prefix,
+            rename_all,
+            rename_all_fields,
+        )
+    }
+}
+
+/// Resolve a fieldless enum.
+fn resolve_fieldless_enum(
+    name: &str,
+    enum_def: &rustdoc_types::Enum,
+    repr: CEnumRepr,
+    package_id: &PackageId,
+    collection: &Collection,
+    prefix_with_name: Option<String>,
+    rename_all: Option<RenameRule>,
+) -> anyhow::Result<CTypeKind> {
+    let mut variants = Vec::new();
+    for variant_id in &enum_def.variants {
+        let global_id = GlobalItemId::new(*variant_id, package_id.clone());
+        let variant_item = collection.get_item_by_global_type_id(&global_id);
+        let ItemEnum::Variant(variant) = &variant_item.inner else {
+            anyhow::bail!("Expected Variant for enum `{name}`");
+        };
+        let variant_ann = FieldAnnotation::from_attrs(&variant_item.attrs);
+        let rust_ident = variant_item.name.clone().unwrap_or_default();
+        let variant_name = variant_ann
+            .rename
+            .or_else(|| rename_all.map(|r| r.apply(&rust_ident)))
+            .unwrap_or(rust_ident);
+        let discriminant = variant.discriminant.as_ref().map(|d| d.expr.clone());
+        variants.push(CEnumVariant {
+            name: CIdentifier::new(variant_name),
+            discriminant,
+            rustdoc_id: Some(global_id),
+        });
+    }
+    Ok(CTypeKind::FieldlessEnum(CFieldlessEnumDef {
+        repr,
+        variants,
+        prefix_with_name,
+    }))
+}
+
+/// Resolve a tagged union (enum with data variants).
+#[expect(
+    clippy::too_many_arguments,
+    reason = "explicit threading of resolution context"
+)]
+fn resolve_tagged_union(
+    name: &str,
+    enum_def: &rustdoc_types::Enum,
+    repr: CEnumRepr,
+    generic_bindings: &GenericBindings,
+    package_id: &PackageId,
+    collection: &Collection,
+    prefix_with_name: Option<String>,
+    rename_all: Option<RenameRule>,
+    rename_all_fields: Option<RenameRule>,
+) -> anyhow::Result<CTypeKind> {
+    let mut variants = Vec::new();
+    for variant_id in &enum_def.variants {
+        let global_id = GlobalItemId::new(*variant_id, package_id.clone());
+        let variant_item = collection.get_item_by_global_type_id(&global_id);
+        let ItemEnum::Variant(variant) = &variant_item.inner else {
+            anyhow::bail!("Expected Variant for enum `{name}`");
+        };
+        let variant_ann = FieldAnnotation::from_attrs(&variant_item.attrs);
+        let rust_ident = variant_item.name.clone().unwrap_or_default();
+        let variant_name = variant_ann
+            .rename
+            .or_else(|| rename_all.map(|r| r.apply(&rust_ident)))
+            .unwrap_or(rust_ident);
+
+        let body = match &variant.kind {
+            VariantKind::Plain => None,
+            VariantKind::Tuple(fields) => {
+                let c_fields =
+                    resolve_tuple_fields(fields, generic_bindings, package_id, collection, None)?;
+                if c_fields.is_empty() {
+                    None
+                } else {
+                    Some(CTaggedVariantBody { fields: c_fields })
+                }
+            }
+            VariantKind::Struct { fields, .. } => {
+                let c_fields = resolve_plain_fields(
+                    fields,
+                    generic_bindings,
+                    package_id,
+                    collection,
+                    rename_all_fields,
+                )?;
+                if c_fields.is_empty() {
+                    None
+                } else {
+                    Some(CTaggedVariantBody { fields: c_fields })
+                }
+            }
+        };
+
+        let discriminant = variant.discriminant.as_ref().map(|d| d.expr.clone());
+
+        variants.push(CTaggedVariant {
+            name: variant_name,
+            body,
+            discriminant,
+            rustdoc_id: Some(global_id),
+        });
+    }
+
+    Ok(CTypeKind::TaggedUnion(CTaggedUnionDef {
+        repr,
+        prefix_with_name,
+        variants,
+    }))
+}
+
+/// Resolve named struct fields into C struct fields.
+///
+/// It skips fields with zero-sized types.
+/// Reads `#[diagnostic::cheadergen::rename(...)]` and
+/// `#[diagnostic::cheadergen::bitfield(...)]` from field attributes.
+fn resolve_plain_fields(
+    field_ids: &[rustdoc_types::Id],
+    generic_bindings: &GenericBindings,
+    package_id: &PackageId,
+    collection: &Collection,
+    rename_all: Option<RenameRule>,
+) -> anyhow::Result<Vec<CStructField>> {
+    let mut c_fields = Vec::new();
+    for field_id in field_ids {
+        let global_id = GlobalItemId::new(*field_id, package_id.clone());
+        let field_item = collection.get_item_by_global_type_id(&global_id);
+        let ItemEnum::StructField(ref raw_type) = field_item.inner else {
+            anyhow::bail!("Expected StructField for id {:?}", field_id);
+        };
+
+        let field_ann = FieldAnnotation::from_attrs(&field_item.attrs);
+
+        let rust_ident = field_item
+            .name
+            .clone()
+            .unwrap_or_else(|| "<unnamed>".to_string());
+        let field_name = field_ann
+            .rename
+            .or_else(|| rename_all.map(|r| r.apply(&rust_ident)))
+            .unwrap_or(rust_ident);
+        let resolved = resolve_type(
+            raw_type,
+            package_id,
+            collection,
+            generic_bindings,
+            TypeAliasResolution::Preserve,
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to resolve field `{field_name}`: {}", Arc::new(e)))?;
+
+        // Skip ZST fields (PhantomData, PhantomPinned, ()).
+        if is_zst_type(&resolved) {
+            continue;
+        }
+
+        c_fields.push(CStructField {
+            name: CIdentifier::new(field_name),
+            type_: resolved,
+            bitfield_width: field_ann.bitfield_width,
+            const_ptr: field_ann.const_ptr,
+            rustdoc_id: Some(global_id),
+        });
+    }
+    Ok(c_fields)
+}
+
+/// Resolve tuple struct fields into C struct fields named `m0`, `m1`, etc.
+///
+/// When `custom_names` is provided (from `#[cheadergen::config(field_names(...))]`),
+/// those names are used instead of the default `m0`, `m1`, etc.
+///
+/// It skips fields with zero-sized types.
+fn resolve_tuple_fields(
+    fields: &[Option<rustdoc_types::Id>],
+    generic_bindings: &GenericBindings,
+    package_id: &PackageId,
+    collection: &Collection,
+    custom_names: Option<&[String]>,
+) -> anyhow::Result<Vec<CStructField>> {
+    let mut c_fields = Vec::new();
+    let mut index = 0;
+    for slot in fields {
+        let Some(field_id) = slot else {
+            // Private/hidden field — we can't emit the full struct.
+            anyhow::bail!("Tuple struct has private fields");
+        };
+        let global_id = GlobalItemId::new(*field_id, package_id.clone());
+        let field_item = collection.get_item_by_global_type_id(&global_id);
+        let ItemEnum::StructField(ref raw_type) = field_item.inner else {
+            anyhow::bail!("Expected StructField for tuple field id {:?}", field_id);
+        };
+
+        let resolved = resolve_type(
+            raw_type,
+            package_id,
+            collection,
+            generic_bindings,
+            TypeAliasResolution::Preserve,
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to resolve tuple field m{index}: {}", Arc::new(e)))?;
+
+        // Skip ZST fields.
+        if is_zst_type(&resolved) {
+            continue;
+        }
+
+        let field_name = custom_names
+            .and_then(|names| names.get(index))
+            .cloned()
+            .unwrap_or_else(|| format!("m{index}"));
+        let field_ann = FieldAnnotation::from_attrs(&field_item.attrs);
+
+        c_fields.push(CStructField {
+            name: CIdentifier::new(field_name),
+            type_: resolved,
+            bitfield_width: None,
+            const_ptr: field_ann.const_ptr,
+            rustdoc_id: Some(global_id),
+        });
+        index += 1;
+    }
+    Ok(c_fields)
+}

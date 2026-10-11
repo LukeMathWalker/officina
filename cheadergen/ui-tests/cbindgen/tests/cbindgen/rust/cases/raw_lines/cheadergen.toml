@@ -1,0 +1,5 @@
+autogen_warning = ""
+after_includes = "#define VERSION 1"
+
+[header.raw_lines]
+include_guard = "INCLUDE_GUARD_H"

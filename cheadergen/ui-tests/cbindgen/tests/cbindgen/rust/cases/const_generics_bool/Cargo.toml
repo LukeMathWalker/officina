@@ -1,0 +1,11 @@
+[package]
+name = "const_generics_bool"
+version = "0.1.0"
+authors = ["cbindgen"]
+edition.workspace = true
+
+[dependencies]
+libc = "0.2"
+
+[lints]
+workspace = true

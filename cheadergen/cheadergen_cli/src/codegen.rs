@@ -1,0 +1,1630 @@
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::fmt::Write;
+use std::path::Path;
+
+use crate::analysis::extern_items::FreeFunctionItem;
+use crate::analysis::{
+    CEnumRepr, CFieldlessEnumDef, CIdentifier, CStructDef, CTaggedUnionDef, CTypeDefinition,
+    CTypeKind, CTypedefDef, CUnionDef, c_type_name, ffi_primitive_to_c,
+};
+use crate::config::{CConfig, CommonConfig, DocumentationLength, DocumentationStyle, Style};
+use crate::constant_item::ConstantItem;
+use crate::static_item::StaticItem;
+use guppy::PackageId;
+use rustdoc_ir::{FunctionPointer, PathType, ScalarPrimitive, Type};
+use rustdoc_processor::GlobalItemId;
+
+use crate::Collection;
+
+/// What C type tag to use when referring to a user-defined type by name.
+enum CTypeTag {
+    Struct,
+    Union,
+    Enum,
+    /// No tag prefix — the type name is typedef'd to an integer type.
+    IntTypedef,
+}
+
+/// Context threaded through the C writer functions: the type-lookup map,
+/// the set of packages configured with `types = "skip"`, and the [`Collection`]
+/// used to look up per-item annotations (e.g. `#[cheadergen::config(skip)]`).
+/// Types skipped at the package or item level are emitted as bare names with
+/// no tag prefix, trusting the consumer's header.
+struct TypeEmitCtx<'a> {
+    meta: &'a HashMap<String, TypeMeta>,
+    skipped: &'a HashSet<PackageId>,
+    collection: &'a Collection,
+    config: &'a CommonConfig,
+}
+
+impl TypeEmitCtx<'_> {
+    /// Returns `true` if `path` refers to a type the user has asked cheadergen
+    /// not to introspect — either via `[package.*] types = "skip"` or via an
+    /// item-level `#[cheadergen::config(skip)]` annotation.
+    fn is_bare_reference(&self, path: &PathType) -> bool {
+        if self.skipped.contains(&path.package_id) {
+            return true;
+        }
+        let Some(id) = &path.rustdoc_id else {
+            return false;
+        };
+        self.collection
+            .get_annotated_items(&path.package_id)
+            .and_then(|ann| ann.get(id))
+            .is_some_and(|a| a.skip)
+    }
+
+    /// Returns the `#[cheadergen::config(rename = "...")]` override attached
+    /// to `path`'s item, if any. Used to spell bare references with their
+    /// renamed C name instead of the last Rust path segment.
+    fn bare_rename(&self, path: &PathType) -> Option<&str> {
+        let id = path.rustdoc_id.as_ref()?;
+        self.collection
+            .get_annotated_items(&path.package_id)
+            .and_then(|ann| ann.get(id))
+            .and_then(|a| a.rename.as_deref())
+    }
+}
+
+/// Type metadata map: `c_type_name` → tag + optional renamed name.
+///
+/// Keyed by the *original* `c_type_name` so that function signatures (which
+/// reference types by their Rust path name) can look up both the tag and the
+/// renamed C name.
+struct TypeMeta {
+    tag: CTypeTag,
+    /// When set, the type was renamed via `#[cheadergen::config(rename = "...")]`.
+    /// The C header uses this name instead of the original.
+    rename: Option<String>,
+}
+
+fn build_type_meta_entry(def: &CTypeDefinition) -> TypeMeta {
+    let tag = match &def.kind {
+        CTypeKind::OpaqueStruct | CTypeKind::Struct(_) => CTypeTag::Struct,
+        CTypeKind::OpaqueUnion | CTypeKind::Union(_) => CTypeTag::Union,
+        CTypeKind::FieldlessEnum(e) => match &e.repr {
+            CEnumRepr::C => CTypeTag::Enum,
+            CEnumRepr::Int { .. } => CTypeTag::IntTypedef,
+        },
+        CTypeKind::Typedef(_) => CTypeTag::IntTypedef,
+        CTypeKind::TaggedUnion(t) => {
+            if t.repr.is_repr_c() {
+                CTypeTag::Struct
+            } else {
+                CTypeTag::Union
+            }
+        }
+    };
+    let rename = def.original_name.as_ref().map(|_| def.name.clone());
+    TypeMeta { tag, rename }
+}
+
+fn build_type_meta_map(type_defs: &[CTypeDefinition]) -> HashMap<String, TypeMeta> {
+    let mut map = HashMap::new();
+    for def in type_defs {
+        let key = def.original_name.as_ref().unwrap_or(&def.name).clone();
+        map.insert(key, build_type_meta_entry(def));
+    }
+    map
+}
+
+/// Generate a C header from the resolved functions, writing to `out`.
+///
+/// `crate_origin` is a human-readable identifier for the crate this header was
+/// generated from — typically a workspace-relative path, but falls back to a
+/// `name@version` package identifier for off-workspace dependencies. It is only
+/// consulted to synthesize the default `autogen_warning`; configs that set
+/// `autogen_warning` explicitly ignore it.
+///
+/// The output order follows cbindgen conventions:
+/// header, include guard/pragma once, autogen warning, includes,
+/// after_includes, cpp_compat open, declarations, cpp_compat close,
+/// include guard close, trailer.
+#[allow(clippy::too_many_arguments)]
+pub fn generate_c_header(
+    config: &CConfig,
+    type_defs: &[CTypeDefinition],
+    constants: &[ConstantItem],
+    assoc_constants: &[(String, Vec<ConstantItem>)],
+    functions: &[FreeFunctionItem],
+    statics: &[StaticItem],
+    dep_includes: &[String],
+    type_hints: &[CTypeDefinition],
+    skipped_packages: &HashSet<PackageId>,
+    partitioned: bool,
+    collection: &Collection,
+    crate_origin: &str,
+    out: &mut String,
+) {
+    let common = &config.common;
+
+    // Preamble (verbatim text at top of file).
+    if let Some(ref preamble) = common.preamble {
+        out.push_str(preamble);
+        out.push('\n');
+    }
+
+    // Include guard or pragma once.
+    if let Some(ref guard) = common.include_guard {
+        writeln!(out, "#ifndef {guard}").unwrap();
+        writeln!(out, "#define {guard}").unwrap();
+        out.push('\n');
+    } else if common.pragma_once {
+        out.push_str("#pragma once\n\n");
+    }
+
+    // Autogen warning. When the user hasn't set one, default to a message that
+    // names the originating crate so a reader can find the source on disk.
+    let default_warning;
+    let warning: &str = match common.autogen_warning.as_deref() {
+        Some(w) => w,
+        None => {
+            default_warning = format!(
+                "/* WARNING: this file was auto-generated by cheadergen from `{crate_origin}`. \
+                 Do not edit it manually. */"
+            );
+            &default_warning
+        }
+    };
+    if !warning.is_empty() {
+        out.push_str(warning);
+        out.push_str("\n\n");
+    }
+
+    // Standard includes.
+    if !common.no_includes {
+        out.push_str("#include <stdarg.h>\n");
+        out.push_str("#include <stdbool.h>\n");
+        // `<stddef.h>` is needed for `size_t` and `ptrdiff_t` when any item
+        // in this header was resolved with `usize_is_size_t = true`. We pull
+        // it in conditionally to keep the default include block unchanged
+        // for the (much more common) case where the option is off.
+        let needs_stddef = type_defs.iter().any(|d| d.usize_is_size_t)
+            || functions.iter().any(|f| f.usize_is_size_t)
+            || statics.iter().any(|s| s.usize_is_size_t);
+        if needs_stddef {
+            out.push_str("#include <stddef.h>\n");
+        }
+        out.push_str("#include <stdint.h>\n");
+        out.push_str("#include <stdlib.h>\n");
+    }
+
+    // Additional includes. An entry wrapped in `<...>` is emitted verbatim
+    // as a system include; any other entry is rendered with double quotes.
+    for inc in &common.includes {
+        if inc.starts_with('<') && inc.ends_with('>') {
+            writeln!(out, "#include {inc}").unwrap();
+        } else {
+            writeln!(out, "#include \"{inc}\"").unwrap();
+        }
+    }
+
+    // Dependency crate includes (auto-generated for partitioned headers).
+    for inc in dep_includes {
+        writeln!(out, "#include \"{inc}\"").unwrap();
+    }
+
+    // After includes (verbatim text).
+    if let Some(ref after) = common.after_includes {
+        out.push_str(after);
+        out.push('\n');
+    }
+
+    // Alignment macro: define `CHEADERGEN_ALIGNED(n)` once per header when any
+    // emitted type carries `#[repr(C, align(N))]`. Guarded by `#ifndef` so
+    // partitioned headers can be safely included together.
+    if type_defs.iter().any(has_alignment) {
+        out.push('\n');
+        write_aligned_macro_definition(out);
+    }
+
+    // Build type metadata map for correct type references in declarations.
+    // Include type_hints from included deps so renames and type tags propagate.
+    let mut meta_map = build_type_meta_map(type_defs);
+    for hint in type_hints {
+        let entry = build_type_meta_entry(hint);
+        let key = hint.original_name.as_ref().unwrap_or(&hint.name).clone();
+        meta_map.entry(key).or_insert(entry);
+    }
+
+    let ctx = TypeEmitCtx {
+        meta: &meta_map,
+        skipped: skipped_packages,
+        collection,
+        config: common,
+    };
+
+    // Type forward declarations.
+    if !type_defs.is_empty() {
+        if !out.is_empty() {
+            out.push('\n');
+        }
+        write_c_type_definitions(
+            type_defs,
+            assoc_constants,
+            &config.style,
+            config.cpp_compat,
+            partitioned,
+            &ctx,
+            common,
+            collection,
+            out,
+        );
+    }
+
+    // Constants as #define macros (after types, before extern "C" block).
+    for c in constants {
+        if !out.is_empty() {
+            out.push('\n');
+        }
+        let docs = lookup_docs(Some(&c.rustdoc_id), collection);
+        write_doc_comment(docs.as_deref(), common, out);
+        writeln!(out, "#define {} {}", c.name, c.value).unwrap();
+    }
+
+    let has_declarations = !functions.is_empty() || !statics.is_empty();
+
+    // cpp_compat open (only if there are declarations to wrap).
+    if config.cpp_compat && has_declarations {
+        if !out.is_empty() {
+            out.push('\n');
+        }
+        out.push_str("#ifdef __cplusplus\n");
+        out.push_str("extern \"C\" {\n");
+        out.push_str("#endif // __cplusplus\n");
+    }
+
+    // Static declarations (before functions, matching cbindgen order).
+    for s in statics.iter() {
+        if !out.is_empty() {
+            out.push('\n');
+        }
+        let docs = lookup_docs(Some(&s.rustdoc_id), collection);
+        write_doc_comment(docs.as_deref(), common, out);
+        write_c_static_decl(s, &config.style, &ctx, out);
+        out.push('\n');
+    }
+
+    // Function declarations.
+    for func in functions.iter() {
+        if !out.is_empty() {
+            out.push('\n');
+        }
+        let docs = lookup_docs(func.function.source_coordinates.as_ref(), collection);
+        write_doc_comment(docs.as_deref(), common, out);
+        write_c_function_decl(func, &config.style, &ctx, out);
+        out.push('\n');
+    }
+
+    // cpp_compat close.
+    if config.cpp_compat && has_declarations {
+        out.push_str("\n#ifdef __cplusplus\n");
+        out.push_str("}  // extern \"C\"\n");
+        out.push_str("#endif  // __cplusplus\n");
+    }
+
+    // Include guard close.
+    if let Some(ref guard) = common.include_guard {
+        out.push('\n');
+        writeln!(out, "#endif  /* {guard} */").unwrap();
+    }
+
+    // Trailer (verbatim text at bottom of file).
+    if let Some(ref trailer) = common.trailer {
+        out.push_str(trailer);
+        out.push('\n');
+    }
+}
+
+fn lookup_docs(id: Option<&GlobalItemId>, collection: &Collection) -> Option<String> {
+    let id = id?;
+    let item = collection.get_item_by_global_type_id(id);
+    item.docs.clone()
+}
+
+fn write_doc_comment(docs: Option<&str>, config: &CommonConfig, out: &mut String) {
+    write_doc_comment_indented(docs, config, "", out);
+}
+
+fn write_doc_comment_indented(
+    docs: Option<&str>,
+    config: &CommonConfig,
+    indent: &str,
+    out: &mut String,
+) {
+    if !config.documentation {
+        return;
+    }
+    let Some(docs) = docs else {
+        return;
+    };
+    if docs.is_empty() {
+        return;
+    }
+
+    let text = match config.documentation_length {
+        DocumentationLength::Full => docs,
+        DocumentationLength::Short => {
+            // First line only (cbindgen's "short" behaviour).
+            docs.lines().next().unwrap_or(docs)
+        }
+    };
+
+    // Trim trailing whitespace-only lines from doc text.
+    let text = text.trim_end();
+
+    // Detect whether the original text had a trailing blank line:
+    // ends with '\n' and the char before it is not whitespace (i.e. content\n, not ws\n).
+    let has_trailing_blank = docs.len() >= 2 && {
+        let bytes = docs.as_bytes();
+        bytes[bytes.len() - 1] == b'\n' && !bytes[bytes.len() - 2].is_ascii_whitespace()
+    };
+
+    let use_line_comments = matches!(
+        config.documentation_style,
+        DocumentationStyle::C99 | DocumentationStyle::Cxx
+    );
+
+    if use_line_comments {
+        for line in text.lines() {
+            if line.is_empty() {
+                writeln!(out, "{indent}//").unwrap();
+            } else {
+                writeln!(out, "{indent}// {line}").unwrap();
+            }
+        }
+        if has_trailing_blank {
+            writeln!(out, "{indent}//").unwrap();
+        }
+    } else {
+        // C-style block comment: /** ... */
+        writeln!(out, "{indent}/**").unwrap();
+        for line in text.lines() {
+            if line.is_empty() {
+                writeln!(out, "{indent} *").unwrap();
+            } else {
+                writeln!(out, "{indent} * {line}").unwrap();
+            }
+        }
+        if has_trailing_blank {
+            writeln!(out, "{indent} *").unwrap();
+        }
+        writeln!(out, "{indent} */").unwrap();
+    }
+}
+
+fn exported_static_name(s: &StaticItem) -> &str {
+    s.symbol_name.as_deref().unwrap_or(&s.name)
+}
+
+fn write_c_static_decl(s: &StaticItem, style: &Style, ctx: &TypeEmitCtx<'_>, out: &mut String) {
+    out.push_str("extern ");
+    if !s.is_mutable && !is_const_pointer(&s.type_) {
+        out.push_str("const ");
+    }
+    write_c_decl(
+        &s.type_,
+        exported_static_name(s),
+        style,
+        ctx,
+        s.usize_is_size_t,
+        out,
+    );
+    out.push(';');
+}
+
+/// Write a C declaration in cdecl style: handles arrays, function pointers,
+/// and pointer-to-function-pointers by placing the name inside the declarator.
+fn write_c_decl(
+    ty: &Type,
+    name: &str,
+    style: &Style,
+    ctx: &TypeEmitCtx<'_>,
+    usize_is_size_t: bool,
+    out: &mut String,
+) {
+    if let Type::Array(a) = ty {
+        write_c_type(&a.element_type, style, ctx, usize_is_size_t, out);
+        write!(out, " {name}[{}]", a.len).unwrap();
+    } else if let Some((fp, depth)) = fn_ptr_through_pointers(ty) {
+        let declarator = format!("{}{name}", "*".repeat(depth));
+        write_fn_ptr_decl(fp, &declarator, style, ctx, usize_is_size_t, out);
+    } else {
+        let mut type_buf = String::new();
+        write_c_type(ty, style, ctx, usize_is_size_t, &mut type_buf);
+        if type_buf.ends_with('*') {
+            write!(out, "{type_buf}{name}").unwrap();
+        } else {
+            write!(out, "{type_buf} {name}").unwrap();
+        }
+    }
+}
+
+/// Write a struct/union field declaration line: type, name, optional bitfield width, semicolon.
+fn write_c_field_line(
+    field: &crate::analysis::CStructField,
+    style: &Style,
+    ctx: &TypeEmitCtx<'_>,
+    usize_is_size_t: bool,
+    out: &mut String,
+) {
+    let docs = lookup_docs(field.rustdoc_id.as_ref(), ctx.collection);
+    write_doc_comment_indented(docs.as_deref(), ctx.config, "  ", out);
+    out.push_str("  ");
+    write_c_decl(
+        &field.type_,
+        field.name.as_str(),
+        style,
+        ctx,
+        usize_is_size_t,
+        out,
+    );
+    if let Some(width) = field.bitfield_width {
+        write!(out, " : {width}").unwrap();
+    }
+    writeln!(out, ";").unwrap();
+}
+
+/// Returns `true` if the type is a `*const T` raw pointer.
+fn is_const_pointer(ty: &Type) -> bool {
+    matches!(ty, Type::RawPointer(p) if !p.is_mutable)
+}
+
+fn write_c_function_decl(
+    item: &FreeFunctionItem,
+    style: &Style,
+    ctx: &TypeEmitCtx<'_>,
+    out: &mut String,
+) {
+    let func = &item.function;
+    let usize_is_size_t = item.usize_is_size_t;
+    let name = func
+        .header
+        .symbol_name
+        .as_deref()
+        .unwrap_or(&func.path.function_name);
+
+    // Return type.
+    let mut ret_buf = String::new();
+    match &func.header.output {
+        None => ret_buf.push_str("void"),
+        Some(ty) if is_void(ty) => ret_buf.push_str("void"),
+        Some(ty) => write_c_type(ty, style, ctx, usize_is_size_t, &mut ret_buf),
+    }
+    if ret_buf.ends_with('*') {
+        write!(out, "{ret_buf}{name}(").unwrap();
+    } else {
+        write!(out, "{ret_buf} {name}(").unwrap();
+    }
+
+    // Parameters.
+    if func.header.inputs.is_empty() && !func.header.is_c_variadic {
+        out.push_str("void");
+    } else {
+        for (i, input) in func.header.inputs.iter().enumerate() {
+            if i > 0 {
+                out.push_str(", ");
+            }
+            write_c_param(
+                &input.type_,
+                input.name.as_str(),
+                style,
+                ctx,
+                usize_is_size_t,
+                out,
+            );
+        }
+        if func.header.is_c_variadic {
+            if !func.header.inputs.is_empty() {
+                out.push_str(", ");
+            }
+            out.push_str("...");
+        }
+    }
+
+    out.push_str(");");
+}
+
+fn write_c_param(
+    ty: &Type,
+    name: &str,
+    style: &Style,
+    ctx: &TypeEmitCtx<'_>,
+    usize_is_size_t: bool,
+    out: &mut String,
+) {
+    if let Some((fp, depth)) = fn_ptr_through_pointers(ty) {
+        let declarator = format!("{}{name}", "*".repeat(depth));
+        write_fn_ptr_decl(fp, &declarator, style, ctx, usize_is_size_t, out);
+    } else {
+        let mut type_buf = String::new();
+        write_c_type(ty, style, ctx, usize_is_size_t, &mut type_buf);
+        if type_buf.ends_with('*') {
+            write!(out, "{type_buf}{name}").unwrap();
+        } else {
+            write!(out, "{type_buf} {name}").unwrap();
+        }
+    }
+}
+
+fn write_c_type(
+    ty: &Type,
+    style: &Style,
+    ctx: &TypeEmitCtx<'_>,
+    usize_is_size_t: bool,
+    out: &mut String,
+) {
+    match ty {
+        Type::ScalarPrimitive(p) => out.push_str(scalar_to_c(p, usize_is_size_t)),
+        Type::RawPointer(_) | Type::Reference(_) => {
+            if let Some((fp, depth)) = fn_ptr_through_pointers(ty) {
+                let declarator = "*".repeat(depth);
+                write_fn_ptr_decl(fp, &declarator, style, ctx, usize_is_size_t, out);
+                return;
+            }
+            write_pointer_chain(ty, style, ctx, usize_is_size_t, out);
+        }
+        Type::Tuple(t) if t.elements.is_empty() => out.push_str("void"),
+        Type::Array(a) => {
+            write_c_type(&a.element_type, style, ctx, usize_is_size_t, out);
+            write!(out, "[{}]", a.len).unwrap();
+        }
+        Type::FunctionPointer(fp) => {
+            write_fn_ptr_decl(fp, "", style, ctx, usize_is_size_t, out);
+        }
+        Type::Path(p) | Type::TypeAlias(p) => {
+            if let Some(c_name) = ffi_primitive_to_c(p) {
+                out.push_str(c_name);
+                return;
+            }
+            let original_name = c_type_name(ty);
+            // Skipped types (either via `[package.*] types = "skip"` or an
+            // item-level `#[cheadergen::config(skip)]` annotation): cheadergen
+            // has no introspection into their C kind, so emit the bare name
+            // and trust the consumer's header — no tag prefix in any style.
+            // Honor `rename` if the item carries one.
+            if ctx.is_bare_reference(p) {
+                let name = ctx.bare_rename(p).unwrap_or(&original_name);
+                out.push_str(name);
+                return;
+            }
+            let meta = ctx.meta.get(&original_name);
+            // Apply rename if this type was renamed via annotation.
+            let name = meta
+                .and_then(|m| m.rename.as_deref())
+                .unwrap_or(&original_name);
+            match style {
+                Style::Tag | Style::Both => {
+                    let tag = meta.map(|m| &m.tag);
+                    match tag {
+                        Some(CTypeTag::Enum) => write!(out, "enum {name}").unwrap(),
+                        Some(CTypeTag::Union) => write!(out, "union {name}").unwrap(),
+                        Some(CTypeTag::IntTypedef) => out.push_str(name),
+                        Some(CTypeTag::Struct) | None => write!(out, "struct {name}").unwrap(),
+                    }
+                }
+                Style::Type => out.push_str(name),
+            }
+        }
+        Type::Tuple(_) | Type::Slice(_) | Type::Generic(_) => {
+            unreachable!("unsupported type in C codegen: {ty:?}")
+        }
+    }
+}
+
+/// Render a chain of `*const`/`*mut` (and `&`/`&mut`) wrappers as a single C
+/// type spelling.
+///
+/// Rust raw pointers and references encode the constness of the *pointee*:
+/// `*const T` says the pointee is read-only through this view. When chained,
+/// the constness of the outer Rust pointer is a statement about the *next-inner*
+/// pointer (it's the thing being read-only), so it becomes a `const` on that
+/// inner C `*` (i.e., `*const`). The innermost pointer's constness lands as
+/// a leading `const` on the base type. The outermost C `*` (closest to the
+/// declarator name) never carries a `const` qualifier — there is no
+/// further-outer Rust pointer to source it from.
+///
+/// Examples:
+/// - `*const i32`               → `const int32_t *`
+/// - `*const *const i32`        → `const int32_t *const *`
+/// - `*const *mut i32`          → `int32_t *const *`
+/// - `*mut *const i32`          → `const int32_t * *`
+fn write_pointer_chain(
+    ty: &Type,
+    style: &Style,
+    ctx: &TypeEmitCtx<'_>,
+    usize_is_size_t: bool,
+    out: &mut String,
+) {
+    let mut levels: Vec<bool> = Vec::new();
+    let mut current = ty;
+    loop {
+        match current {
+            Type::RawPointer(p) => {
+                levels.push(!p.is_mutable);
+                current = &p.inner;
+            }
+            Type::Reference(r) => {
+                levels.push(!r.is_mutable);
+                current = &r.inner;
+            }
+            _ => break,
+        }
+    }
+    let innermost_const = *levels
+        .last()
+        .expect("write_pointer_chain called with no pointer/reference levels");
+    if innermost_const {
+        out.push_str("const ");
+    }
+    write_c_type(current, style, ctx, usize_is_size_t, out);
+    for i in (0..levels.len()).rev() {
+        out.push_str(" *");
+        if i > 0 && levels[i - 1] {
+            out.push_str("const");
+        }
+    }
+}
+
+/// Check if a type is a function pointer possibly wrapped in raw pointer layers.
+/// Returns the inner function pointer and the pointer depth (0 for bare fn ptr).
+fn fn_ptr_through_pointers(ty: &Type) -> Option<(&FunctionPointer, usize)> {
+    match ty {
+        Type::FunctionPointer(fp) => Some((fp, 0)),
+        Type::RawPointer(p) => {
+            let (fp, depth) = fn_ptr_through_pointers(&p.inner)?;
+            Some((fp, depth + 1))
+        }
+        _ => None,
+    }
+}
+
+/// Write a C function pointer declaration.
+///
+/// `declarator` goes between `(*` and `)` — it's the name for named declarations,
+/// extra `*`s for pointer-to-fn-ptr, or empty for unnamed.
+fn write_fn_ptr_decl(
+    fp: &FunctionPointer,
+    declarator: &str,
+    style: &Style,
+    ctx: &TypeEmitCtx<'_>,
+    usize_is_size_t: bool,
+    out: &mut String,
+) {
+    // Return type.
+    let mut ret_buf = String::new();
+    match &fp.output {
+        None => ret_buf.push_str("void"),
+        Some(ty) if is_void(ty) => ret_buf.push_str("void"),
+        Some(ty) => write_c_type(ty, style, ctx, usize_is_size_t, &mut ret_buf),
+    }
+
+    if ret_buf.ends_with('*') {
+        write!(out, "{ret_buf}(*{declarator})(").unwrap();
+    } else {
+        write!(out, "{ret_buf} (*{declarator})(").unwrap();
+    }
+
+    // Parameters.
+    if fp.inputs.is_empty() {
+        out.push_str("void");
+    } else {
+        for (i, input) in fp.inputs.iter().enumerate() {
+            if i > 0 {
+                out.push_str(", ");
+            }
+            if let Some(name) = &input.name {
+                write_c_param(&input.type_, name, style, ctx, usize_is_size_t, out);
+            } else {
+                write_c_type(&input.type_, style, ctx, usize_is_size_t, out);
+            }
+        }
+    }
+    out.push(')');
+}
+
+#[allow(clippy::too_many_arguments)]
+fn write_c_type_definitions(
+    type_defs: &[CTypeDefinition],
+    assoc_constants: &[(String, Vec<ConstantItem>)],
+    style: &Style,
+    cpp_compat: bool,
+    partitioned: bool,
+    ctx: &TypeEmitCtx<'_>,
+    config: &CommonConfig,
+    collection: &Collection,
+    out: &mut String,
+) {
+    // Partition into categories for ordering: fieldless enums, opaques, then structs + tagged unions.
+    let fieldless_enum_defs: Vec<_> = type_defs
+        .iter()
+        .filter(|d| matches!(d.kind, CTypeKind::FieldlessEnum(_)))
+        .collect();
+    let opaque_defs: Vec<_> = type_defs
+        .iter()
+        .filter(|d| matches!(d.kind, CTypeKind::OpaqueStruct | CTypeKind::OpaqueUnion))
+        .collect();
+    let compound_defs: Vec<_> = type_defs
+        .iter()
+        .filter(|d| {
+            matches!(
+                d.kind,
+                CTypeKind::Struct(_)
+                    | CTypeKind::Union(_)
+                    | CTypeKind::TaggedUnion(_)
+                    | CTypeKind::Typedef(_)
+            )
+        })
+        .collect();
+
+    // Build a lookup from type name → associated constants.
+    let assoc_map: HashMap<&str, &Vec<ConstantItem>> = assoc_constants
+        .iter()
+        .map(|(name, consts)| (name.as_str(), consts))
+        .collect();
+
+    // Fieldless enums first.
+    for (i, def) in fieldless_enum_defs.iter().enumerate() {
+        let CTypeKind::FieldlessEnum(ref enum_def) = def.kind else {
+            unreachable!();
+        };
+        let docs = lookup_docs(def.rustdoc_id.as_ref(), collection);
+        write_doc_comment(docs.as_deref(), config, out);
+        write_c_fieldless_enum(
+            &def.name,
+            enum_def,
+            style,
+            cpp_compat,
+            def.usize_is_size_t,
+            config,
+            collection,
+            out,
+        );
+        write_assoc_constants_for_type(&def.name, &assoc_map, collection, config, out);
+        if i + 1 < fieldless_enum_defs.len() {
+            out.push('\n');
+        }
+    }
+
+    // Blank line between sections.
+    if !fieldless_enum_defs.is_empty() && (!opaque_defs.is_empty() || !compound_defs.is_empty()) {
+        out.push('\n');
+    }
+
+    // Opaques.
+    for (i, def) in opaque_defs.iter().enumerate() {
+        let name = &def.name;
+        let docs = lookup_docs(def.rustdoc_id.as_ref(), collection);
+        write_doc_comment(docs.as_deref(), config, out);
+        let tag = if matches!(def.kind, CTypeKind::OpaqueUnion) {
+            "union"
+        } else {
+            "struct"
+        };
+        match style {
+            Style::Tag => writeln!(out, "{tag} {name};").unwrap(),
+            Style::Type | Style::Both => writeln!(out, "typedef {tag} {name} {name};").unwrap(),
+        }
+        write_assoc_constants_for_type(name, &assoc_map, collection, config, out);
+        if i + 1 < opaque_defs.len() {
+            out.push('\n');
+        }
+    }
+
+    // Blank line between opaques and compounds.
+    if !opaque_defs.is_empty() && !compound_defs.is_empty() {
+        out.push('\n');
+    }
+
+    // For Plain (Type) style, emit forward declarations only for compounds
+    // that are referenced by pointer before their definition (self-referential
+    // types, corecursive pointer back-references, etc.). Aligned compounds are
+    // also forced into the forward-decl set so they emit as a tagged
+    // definition — the only emission form where the `CHEADERGEN_ALIGNED(N)`
+    // macro placement works across GCC, Clang, and MSVC.
+    let forward_declared: HashSet<&str> = if matches!(style, Style::Type) {
+        let mut set = compute_needed_forward_decls(&compound_defs);
+        for def in &compound_defs {
+            if has_alignment(def) {
+                set.insert(def.name.as_str());
+            }
+        }
+        set
+    } else {
+        HashSet::new()
+    };
+    if matches!(style, Style::Type) && !compound_defs.is_empty() && !forward_declared.is_empty() {
+        for def in &compound_defs {
+            if forward_declared.contains(def.name.as_str()) {
+                let name = &def.name;
+                match &def.kind {
+                    CTypeKind::Union(_)
+                    | CTypeKind::TaggedUnion(CTaggedUnionDef {
+                        repr: CEnumRepr::Int { .. },
+                        ..
+                    }) => {
+                        writeln!(out, "typedef union {name} {name};").unwrap();
+                    }
+                    _ => {
+                        writeln!(out, "typedef struct {name} {name};").unwrap();
+                    }
+                }
+            }
+        }
+        out.push('\n');
+    }
+
+    // Structs and tagged unions.
+    for (i, def) in compound_defs.iter().enumerate() {
+        // In partitioned mode, generic instantiations are wrapped in #ifndef
+        // guards to prevent redefinition errors when the same instantiation
+        // appears in multiple headers. In bundle mode, guards are unnecessary.
+        let guard_name = if partitioned && def.is_generic_instantiation {
+            Some(type_include_guard_name(&def.name))
+        } else {
+            None
+        };
+        if let Some(ref guard) = guard_name {
+            writeln!(out, "#ifndef {guard}").unwrap();
+            writeln!(out, "#define {guard}").unwrap();
+        }
+        let docs = lookup_docs(def.rustdoc_id.as_ref(), collection);
+        write_doc_comment(docs.as_deref(), config, out);
+        let has_fwd_decl = forward_declared.contains(def.name.as_str());
+        match &def.kind {
+            CTypeKind::Struct(struct_def) => {
+                write_c_struct_definition(
+                    &def.name,
+                    struct_def,
+                    style,
+                    has_fwd_decl,
+                    ctx,
+                    def.usize_is_size_t,
+                    out,
+                );
+            }
+            CTypeKind::Union(union_def) => {
+                write_c_union_definition(
+                    &def.name,
+                    union_def,
+                    style,
+                    has_fwd_decl,
+                    ctx,
+                    def.usize_is_size_t,
+                    out,
+                );
+            }
+            CTypeKind::TaggedUnion(tagged_def) => {
+                write_c_tagged_union(
+                    &def.name,
+                    tagged_def,
+                    style,
+                    has_fwd_decl,
+                    cpp_compat,
+                    ctx,
+                    def.usize_is_size_t,
+                    out,
+                );
+            }
+            CTypeKind::Typedef(typedef_def) => {
+                write_c_typedef(&def.name, typedef_def, style, ctx, def.usize_is_size_t, out);
+            }
+            _ => unreachable!(),
+        }
+        write_assoc_constants_for_type(&def.name, &assoc_map, collection, config, out);
+        if let Some(ref guard) = guard_name {
+            writeln!(out, "#endif /* {guard} */").unwrap();
+        }
+        if i + 1 < compound_defs.len() {
+            out.push('\n');
+        }
+    }
+}
+
+/// Emit associated constants for a type, if any exist.
+fn write_assoc_constants_for_type(
+    type_name: &str,
+    assoc_map: &HashMap<&str, &Vec<ConstantItem>>,
+    collection: &Collection,
+    config: &CommonConfig,
+    out: &mut String,
+) {
+    if let Some(constants) = assoc_map.get(type_name) {
+        for c in *constants {
+            let docs = lookup_docs(Some(&c.rustdoc_id), collection);
+            write_doc_comment(docs.as_deref(), config, out);
+            writeln!(out, "#define {} {}", c.name, c.value).unwrap();
+        }
+    }
+}
+
+/// Emit a full C struct definition with fields.
+#[allow(clippy::too_many_arguments)]
+fn write_c_struct_definition(
+    name: &str,
+    def: &CStructDef,
+    style: &Style,
+    has_fwd_decl: bool,
+    ctx: &TypeEmitCtx<'_>,
+    usize_is_size_t: bool,
+    out: &mut String,
+) {
+    let write_fields = |style: &Style, out: &mut String| {
+        if def.fields.is_empty() {
+            writeln!(out).unwrap();
+        } else {
+            for field in &def.fields {
+                write_c_field_line(field, style, ctx, usize_is_size_t, out);
+            }
+        }
+    };
+
+    let align = align_attr_fragment(def.align);
+    match style {
+        Style::Type if has_fwd_decl => {
+            writeln!(out, "struct{align} {name} {{").unwrap();
+            write_fields(style, out);
+            writeln!(out, "}};").unwrap();
+        }
+        Style::Type => {
+            writeln!(out, "typedef struct{align} {{").unwrap();
+            write_fields(style, out);
+            writeln!(out, "}} {name};").unwrap();
+        }
+        Style::Tag => {
+            writeln!(out, "struct{align} {name} {{").unwrap();
+            write_fields(&Style::Tag, out);
+            writeln!(out, "}};").unwrap();
+        }
+        Style::Both => {
+            writeln!(out, "typedef struct{align} {name} {{").unwrap();
+            write_fields(style, out);
+            writeln!(out, "}} {name};").unwrap();
+        }
+    }
+}
+
+/// Emit a full C union definition with fields.
+#[allow(clippy::too_many_arguments)]
+fn write_c_union_definition(
+    name: &str,
+    def: &CUnionDef,
+    style: &Style,
+    has_fwd_decl: bool,
+    ctx: &TypeEmitCtx<'_>,
+    usize_is_size_t: bool,
+    out: &mut String,
+) {
+    let write_fields = |style: &Style, out: &mut String| {
+        if def.fields.is_empty() {
+            writeln!(out).unwrap();
+        } else {
+            for field in &def.fields {
+                write_c_field_line(field, style, ctx, usize_is_size_t, out);
+            }
+        }
+    };
+
+    let align = align_attr_fragment(def.align);
+    match style {
+        Style::Type if has_fwd_decl => {
+            writeln!(out, "union{align} {name} {{").unwrap();
+            write_fields(style, out);
+            writeln!(out, "}};").unwrap();
+        }
+        Style::Type => {
+            writeln!(out, "typedef union{align} {{").unwrap();
+            write_fields(style, out);
+            writeln!(out, "}} {name};").unwrap();
+        }
+        Style::Tag => {
+            writeln!(out, "union{align} {name} {{").unwrap();
+            write_fields(&Style::Tag, out);
+            writeln!(out, "}};").unwrap();
+        }
+        Style::Both => {
+            writeln!(out, "typedef union{align} {name} {{").unwrap();
+            write_fields(style, out);
+            writeln!(out, "}} {name};").unwrap();
+        }
+    }
+}
+
+/// Format the alignment annotation slot for a compound's `struct`/`union`
+/// header (e.g. `" CHEADERGEN_ALIGNED(16)"`, with a leading space). Returns
+/// an empty string when no alignment is requested.
+fn align_attr_fragment(align: Option<u64>) -> String {
+    match align {
+        Some(n) => format!(" {ALIGNED_MACRO}({n})"),
+        None => String::new(),
+    }
+}
+
+/// Whether a compound carries an explicit `#[repr(C, align(N))]` annotation.
+fn has_alignment(def: &CTypeDefinition) -> bool {
+    match &def.kind {
+        CTypeKind::Struct(s) => s.align.is_some(),
+        CTypeKind::Union(u) => u.align.is_some(),
+        _ => false,
+    }
+}
+
+/// Name of the alignment macro emitted in the header prologue and referenced
+/// from each aligned compound's definition.
+const ALIGNED_MACRO: &str = "CHEADERGEN_ALIGNED";
+
+/// Emit the cross-compiler `CHEADERGEN_ALIGNED(n)` macro into the header
+/// prologue. The expansion picks the right alignment specifier for the
+/// active compiler/standard; the outer `#ifndef` guard keeps this safe
+/// across partitioned headers that include each other.
+///
+/// The macro is interpolated between `struct`/`union` and the tag name, so
+/// the expansion must be valid in that position. Pure-C `_Alignas`/`alignas`
+/// is intentionally not used: the C standard restricts alignment specifiers
+/// to declaration-specifier-seq, not inside a struct-or-union-specifier.
+/// We rely on the GCC/Clang and MSVC compiler extensions for C, and on the
+/// C++11 `alignas` (which the language explicitly permits in a class-head).
+fn write_aligned_macro_definition(out: &mut String) {
+    out.push_str("#ifndef CHEADERGEN_ALIGNED\n");
+    out.push_str("#  if defined(__cplusplus) && __cplusplus >= 201103L\n");
+    out.push_str("#    define CHEADERGEN_ALIGNED(n) alignas(n)\n");
+    out.push_str("#  elif defined(_MSC_VER)\n");
+    out.push_str("#    define CHEADERGEN_ALIGNED(n) __declspec(align(n))\n");
+    out.push_str("#  elif defined(__GNUC__) || defined(__clang__)\n");
+    out.push_str("#    define CHEADERGEN_ALIGNED(n) __attribute__((aligned(n)))\n");
+    out.push_str("#  else\n");
+    out.push_str(
+        "#    error \"cheadergen: don't know how to express alignment for this compiler\"\n",
+    );
+    out.push_str("#  endif\n");
+    out.push_str("#endif\n");
+}
+
+/// Emit a fieldless C enum.
+#[allow(clippy::too_many_arguments)]
+fn write_c_fieldless_enum(
+    name: &str,
+    def: &CFieldlessEnumDef,
+    style: &Style,
+    cpp_compat: bool,
+    usize_is_size_t: bool,
+    config: &CommonConfig,
+    collection: &Collection,
+    out: &mut String,
+) {
+    let prefix = def.prefix_with_name.as_deref();
+
+    match &def.repr {
+        CEnumRepr::Int { int_type, .. } => {
+            let c_int = scalar_to_c(&int_type.to_scalar_primitive(), usize_is_size_t);
+            if cpp_compat {
+                writeln!(out, "enum {name}").unwrap();
+                writeln!(out, "#ifdef __cplusplus").unwrap();
+                writeln!(out, "  : {c_int}").unwrap();
+                writeln!(out, "#endif // __cplusplus").unwrap();
+                writeln!(out, " {{").unwrap();
+                write_enum_variant_list(&def.variants, prefix, config, collection, out);
+                writeln!(out, "}};").unwrap();
+                writeln!(out, "#ifndef __cplusplus").unwrap();
+                writeln!(out, "typedef {c_int} {name};").unwrap();
+                writeln!(out, "#endif // __cplusplus").unwrap();
+            } else {
+                writeln!(out, "enum {name} {{").unwrap();
+                write_enum_variant_list(&def.variants, prefix, config, collection, out);
+                writeln!(out, "}};").unwrap();
+                writeln!(out, "typedef {c_int} {name};").unwrap();
+            }
+        }
+        CEnumRepr::C => match style {
+            Style::Type => {
+                writeln!(out, "typedef enum {{").unwrap();
+                write_enum_variant_list(&def.variants, prefix, config, collection, out);
+                writeln!(out, "}} {name};").unwrap();
+            }
+            Style::Tag => {
+                writeln!(out, "enum {name} {{").unwrap();
+                write_enum_variant_list(&def.variants, prefix, config, collection, out);
+                writeln!(out, "}};").unwrap();
+            }
+            Style::Both => {
+                writeln!(out, "typedef enum {name} {{").unwrap();
+                write_enum_variant_list(&def.variants, prefix, config, collection, out);
+                writeln!(out, "}} {name};").unwrap();
+            }
+        },
+    }
+}
+
+/// Write the inner variant list of an enum (indented, with trailing commas).
+///
+/// When `prefix` is `Some(name)`, each variant is emitted as `Name_Variant`
+/// instead of just `Variant`.
+fn write_enum_variant_list(
+    variants: &[crate::analysis::CEnumVariant],
+    prefix: Option<&str>,
+    config: &CommonConfig,
+    collection: &Collection,
+    out: &mut String,
+) {
+    for (i, variant) in variants.iter().enumerate() {
+        let docs = lookup_docs(variant.rustdoc_id.as_ref(), collection);
+        if docs.is_some() {
+            write_doc_comment_indented(docs.as_deref(), config, "  ", out);
+        }
+        out.push_str("  ");
+        if let Some(prefix) = prefix {
+            write!(out, "{prefix}_").unwrap();
+        }
+        out.push_str(variant.name.as_str());
+        if let Some(ref disc) = variant.discriminant {
+            write!(out, " = {disc}").unwrap();
+        }
+        out.push(',');
+        if i + 1 < variants.len() {
+            out.push('\n');
+        }
+    }
+    out.push('\n');
+}
+
+/// Emit a tagged union (enum with data variants).
+#[allow(clippy::too_many_arguments)]
+fn write_c_tagged_union(
+    name: &str,
+    def: &CTaggedUnionDef,
+    style: &Style,
+    has_fwd_decl: bool,
+    cpp_compat: bool,
+    ctx: &TypeEmitCtx<'_>,
+    usize_is_size_t: bool,
+    out: &mut String,
+) {
+    let tag_name = format!("{name}_Tag");
+
+    // 1. Emit the tag enum.
+    let tag_variants: Vec<crate::analysis::CEnumVariant> = def
+        .variants
+        .iter()
+        .map(|v| {
+            let variant_name = if let Some(prefix) = &def.prefix_with_name {
+                format!("{prefix}_{}", v.name)
+            } else {
+                v.name.clone()
+            };
+            crate::analysis::CEnumVariant {
+                name: CIdentifier::new(variant_name),
+                discriminant: v.discriminant.clone(),
+                rustdoc_id: v.rustdoc_id.clone(),
+            }
+        })
+        .collect();
+
+    let tag_repr = match &def.repr {
+        CEnumRepr::C => CEnumRepr::C,
+        CEnumRepr::Int { int_type, .. } => CEnumRepr::Int {
+            is_repr_c: false,
+            int_type: *int_type,
+        },
+    };
+
+    let tag_enum_def = CFieldlessEnumDef {
+        repr: tag_repr,
+        variants: tag_variants,
+        // Tag variant names are already prefixed by the tagged union codegen
+        // above, so don't apply prefix_with_name again here.
+        prefix_with_name: None,
+    };
+    // Tag discriminants are produced by `to_scalar_primitive` on small ints
+    // (`u8`/`u16`/...), never `usize`/`isize`, so the bool only matters for
+    // consistency — pass the surrounding type's value.
+    write_c_fieldless_enum(
+        &tag_name,
+        &tag_enum_def,
+        style,
+        cpp_compat,
+        usize_is_size_t,
+        ctx.config,
+        ctx.collection,
+        out,
+    );
+    out.push('\n');
+
+    // Determine the tag type string for use in fields.
+    let tag_type_str = match &def.repr {
+        CEnumRepr::Int { .. } => tag_name.clone(),
+        CEnumRepr::C => match style {
+            Style::Tag => format!("enum {tag_name}"),
+            Style::Type | Style::Both => tag_name.clone(),
+        },
+    };
+
+    // 2. Emit body structs for multi-field variants.
+    for variant in &def.variants {
+        let Some(ref body) = variant.body else {
+            continue;
+        };
+        if body.fields.len() < 2 {
+            continue;
+        }
+        let body_name = if let Some(prefix) = &def.prefix_with_name {
+            format!("{prefix}_{}_Body", variant.name)
+        } else {
+            format!("{}_Body", variant.name)
+        };
+
+        // For repr(uN) body structs, the tag is the first field.
+        let include_tag_field = !def.repr.is_repr_c();
+
+        match style {
+            Style::Type => {
+                writeln!(out, "typedef struct {{").unwrap();
+                if include_tag_field {
+                    writeln!(out, "  {tag_type_str} tag;").unwrap();
+                }
+                for field in &body.fields {
+                    write_c_field_line(field, style, ctx, usize_is_size_t, out);
+                }
+                writeln!(out, "}} {body_name};").unwrap();
+            }
+            Style::Tag => {
+                writeln!(out, "struct {body_name} {{").unwrap();
+                if include_tag_field {
+                    writeln!(out, "  {tag_type_str} tag;").unwrap();
+                }
+                for field in &body.fields {
+                    write_c_field_line(field, &Style::Tag, ctx, usize_is_size_t, out);
+                }
+                writeln!(out, "}};").unwrap();
+            }
+            Style::Both => {
+                writeln!(out, "typedef struct {body_name} {{").unwrap();
+                if include_tag_field {
+                    writeln!(out, "  {tag_type_str} tag;").unwrap();
+                }
+                for field in &body.fields {
+                    write_c_field_line(field, style, ctx, usize_is_size_t, out);
+                }
+                writeln!(out, "}} {body_name};").unwrap();
+            }
+        }
+        out.push('\n');
+    }
+
+    // 3. Emit the outer container.
+    if def.repr.is_repr_c() {
+        // repr(C) or repr(C, uN) → struct with tag + anonymous union
+        write_tagged_union_repr_c(
+            name,
+            def,
+            style,
+            has_fwd_decl,
+            ctx,
+            &tag_type_str,
+            usize_is_size_t,
+            out,
+        );
+    } else {
+        // repr(uN) → union with tag + anonymous struct members
+        write_tagged_union_repr_int(
+            name,
+            def,
+            style,
+            has_fwd_decl,
+            ctx,
+            &tag_type_str,
+            usize_is_size_t,
+            out,
+        );
+    }
+}
+
+/// Emit the outer container for a repr(C) tagged union.
+#[allow(clippy::too_many_arguments)]
+fn write_tagged_union_repr_c(
+    name: &str,
+    def: &CTaggedUnionDef,
+    style: &Style,
+    has_fwd_decl: bool,
+    ctx: &TypeEmitCtx<'_>,
+    tag_type_str: &str,
+    usize_is_size_t: bool,
+    out: &mut String,
+) {
+    let body_prefix = if let Some(prefix) = &def.prefix_with_name {
+        format!("{prefix}_")
+    } else {
+        String::new()
+    };
+
+    // Check if there are any non-unit variants that need a union.
+    let has_data_variants = def.variants.iter().any(|v| v.body.is_some());
+
+    match (style, has_fwd_decl) {
+        (Style::Type, true) => writeln!(out, "struct {name} {{").unwrap(),
+        (Style::Type, false) => out.push_str("typedef struct {\n"),
+        (Style::Tag, _) => writeln!(out, "struct {name} {{").unwrap(),
+        (Style::Both, _) => writeln!(out, "typedef struct {name} {{").unwrap(),
+    }
+    writeln!(out, "  {tag_type_str} tag;").unwrap();
+
+    if has_data_variants {
+        writeln!(out, "  union {{").unwrap();
+        for variant in &def.variants {
+            let Some(ref body) = variant.body else {
+                continue;
+            };
+            let field_name = CIdentifier::new(variant.name.to_lowercase());
+            if body.fields.len() == 1 {
+                // Single-field: anonymous struct with lowercased variant name
+                writeln!(out, "    struct {{").unwrap();
+                let field = &body.fields[0];
+                out.push_str("      ");
+                write_c_decl(
+                    &field.type_,
+                    field_name.as_str(),
+                    style,
+                    ctx,
+                    usize_is_size_t,
+                    out,
+                );
+                writeln!(out, ";").unwrap();
+                writeln!(out, "    }};").unwrap();
+            } else {
+                // Multi-field: reference to _Body struct
+                let body_name = format!("{body_prefix}{}_Body", variant.name);
+                match style {
+                    Style::Tag | Style::Both => {
+                        writeln!(out, "    struct {body_name} {field_name};").unwrap()
+                    }
+                    _ => writeln!(out, "    {body_name} {field_name};").unwrap(),
+                }
+            }
+        }
+        writeln!(out, "  }};").unwrap();
+    }
+
+    match (style, has_fwd_decl) {
+        (Style::Type, true) | (Style::Tag, _) => writeln!(out, "}};").unwrap(),
+        _ => writeln!(out, "}} {name};").unwrap(),
+    }
+}
+
+/// Emit the outer container for a repr(uN) tagged union.
+#[allow(clippy::too_many_arguments)]
+fn write_tagged_union_repr_int(
+    name: &str,
+    def: &CTaggedUnionDef,
+    style: &Style,
+    has_fwd_decl: bool,
+    ctx: &TypeEmitCtx<'_>,
+    tag_type_str: &str,
+    usize_is_size_t: bool,
+    out: &mut String,
+) {
+    match (style, has_fwd_decl) {
+        (Style::Type, true) => writeln!(out, "union {name} {{").unwrap(),
+        (Style::Type, false) => out.push_str("typedef union {\n"),
+        (Style::Tag, _) => writeln!(out, "union {name} {{").unwrap(),
+        (Style::Both, _) => writeln!(out, "typedef union {name} {{").unwrap(),
+    }
+    writeln!(out, "  {tag_type_str} tag;").unwrap();
+
+    let body_prefix = if let Some(prefix) = &def.prefix_with_name {
+        format!("{prefix}_")
+    } else {
+        String::new()
+    };
+
+    for variant in &def.variants {
+        let Some(ref body) = variant.body else {
+            continue;
+        };
+        let field_name = CIdentifier::new(variant.name.to_lowercase());
+        if body.fields.len() == 1 {
+            // Single-field tuple variant: anonymous struct with tag + field
+            let field = &body.fields[0];
+            writeln!(out, "  struct {{").unwrap();
+            writeln!(out, "    {tag_type_str} {field_name}_tag;").unwrap();
+            out.push_str("    ");
+            write_c_decl(
+                &field.type_,
+                field_name.as_str(),
+                style,
+                ctx,
+                usize_is_size_t,
+                out,
+            );
+            writeln!(out, ";").unwrap();
+            writeln!(out, "  }};").unwrap();
+        } else {
+            // Multi-field: reference to _Body struct
+            let body_name = format!("{body_prefix}{}_Body", variant.name);
+            match style {
+                Style::Tag | Style::Both => {
+                    writeln!(out, "  struct {body_name} {field_name};").unwrap()
+                }
+                _ => writeln!(out, "  {body_name} {field_name};").unwrap(),
+            }
+        }
+    }
+
+    match (style, has_fwd_decl) {
+        (Style::Type, true) | (Style::Tag, _) => writeln!(out, "}};").unwrap(),
+        _ => writeln!(out, "}} {name};").unwrap(),
+    }
+}
+
+/// Compute the `#ifndef` guard name for a generic instantiation.
+///
+/// Uppercases the C type name and replaces non-alphanumeric characters with `_`,
+/// then appends `_DEFINED`. For example, `Wrapper_i32` becomes `WRAPPER_I32_DEFINED`.
+fn type_include_guard_name(c_name: &str) -> String {
+    let mut guard = String::with_capacity(c_name.len() + "_DEFINED".len());
+    for ch in c_name.chars() {
+        if ch.is_ascii_alphanumeric() {
+            guard.push(ch.to_ascii_uppercase());
+        } else {
+            guard.push('_');
+        }
+    }
+    guard.push_str("_DEFINED");
+    guard
+}
+
+/// Determine which compound types need a forward `typedef` declaration
+/// in Plain (Type) style.
+///
+/// A forward declaration is needed when a compound type is referenced via
+/// pointer from a compound that appears earlier in the emission order (the
+/// bare typedef name isn't available yet). This covers self-referential types
+/// and corecursive pointer back-references.
+fn compute_needed_forward_decls<'a>(compound_defs: &'a [&CTypeDefinition]) -> HashSet<&'a str> {
+    let all_compound_names: HashSet<&str> = compound_defs.iter().map(|d| d.name.as_str()).collect();
+
+    // Track which types have been "defined" as we walk the list in order.
+    let mut defined: HashSet<&str> = HashSet::new();
+    let mut need_fwd: HashSet<&str> = HashSet::new();
+
+    for def in compound_defs {
+        // Collect all pointer-target type names from this compound's fields.
+        let ptr_refs = pointer_referenced_types(def);
+        for name in &ptr_refs {
+            // If this name is a compound that hasn't been defined yet
+            // (or is the current type itself), it needs a forward declaration.
+            if all_compound_names.contains(name.as_str()) && !defined.contains(name.as_str()) {
+                need_fwd.insert(
+                    compound_defs
+                        .iter()
+                        .find(|d| d.name == *name)
+                        .unwrap()
+                        .name
+                        .as_str(),
+                );
+            }
+        }
+        defined.insert(def.name.as_str());
+    }
+
+    need_fwd
+}
+
+/// Collect all type names that appear behind a pointer/reference in a compound's fields.
+fn pointer_referenced_types(def: &CTypeDefinition) -> Vec<String> {
+    let mut refs = Vec::new();
+    match &def.kind {
+        CTypeKind::Struct(s) => {
+            for field in &s.fields {
+                collect_pointer_targets(&field.type_, &mut refs);
+            }
+        }
+        CTypeKind::Union(u) => {
+            for field in &u.fields {
+                collect_pointer_targets(&field.type_, &mut refs);
+            }
+        }
+        CTypeKind::TaggedUnion(t) => {
+            for variant in &t.variants {
+                if let Some(ref body) = variant.body {
+                    for field in &body.fields {
+                        collect_pointer_targets(&field.type_, &mut refs);
+                    }
+                }
+            }
+        }
+        CTypeKind::Typedef(_) => {}
+        _ => {}
+    }
+    refs
+}
+
+/// Walk a type tree and collect the C names of types found behind pointers/references.
+fn collect_pointer_targets(ty: &Type, refs: &mut Vec<String>) {
+    match ty {
+        Type::RawPointer(p) => collect_by_value_names(&p.inner, refs),
+        Type::Reference(r) => collect_by_value_names(&r.inner, refs),
+        Type::Array(a) => collect_pointer_targets(&a.element_type, refs),
+        // By-value Path types are not pointer targets.
+        _ => {}
+    }
+}
+
+/// Collect the C name of any Path type found by value (recursing into arrays).
+fn collect_by_value_names(ty: &Type, refs: &mut Vec<String>) {
+    match ty {
+        Type::Path(_) | Type::TypeAlias(_) => refs.push(c_type_name(ty)),
+        Type::Array(a) => collect_by_value_names(&a.element_type, refs),
+        Type::RawPointer(p) => collect_by_value_names(&p.inner, refs),
+        Type::Reference(r) => collect_by_value_names(&r.inner, refs),
+        _ => {}
+    }
+}
+
+/// Emit a typedef: `typedef <inner> <name>;`.
+fn write_c_typedef(
+    name: &str,
+    def: &CTypedefDef,
+    style: &Style,
+    ctx: &TypeEmitCtx<'_>,
+    usize_is_size_t: bool,
+    out: &mut String,
+) {
+    out.push_str("typedef ");
+    write_c_decl(&def.inner, name, style, ctx, usize_is_size_t, out);
+    writeln!(out, ";").unwrap();
+}
+
+/// Translate a Rust scalar primitive to its C type name.
+///
+/// `usize_is_size_t` controls the width-pointer-int translation:
+/// - `false` (default): `usize`/`isize` → `uintptr_t`/`intptr_t`.
+/// - `true`: `usize`/`isize` → `size_t`/`ptrdiff_t`. Use when the surrounding
+///   item's resolved per-package configuration enables it.
+fn scalar_to_c(p: &ScalarPrimitive, usize_is_size_t: bool) -> &'static str {
+    match p {
+        ScalarPrimitive::U8 => "uint8_t",
+        ScalarPrimitive::U16 => "uint16_t",
+        ScalarPrimitive::U32 => "uint32_t",
+        ScalarPrimitive::U64 => "uint64_t",
+        ScalarPrimitive::U128 => "__uint128_t",
+        ScalarPrimitive::Usize => {
+            if usize_is_size_t {
+                "size_t"
+            } else {
+                "uintptr_t"
+            }
+        }
+        ScalarPrimitive::I8 => "int8_t",
+        ScalarPrimitive::I16 => "int16_t",
+        ScalarPrimitive::I32 => "int32_t",
+        ScalarPrimitive::I64 => "int64_t",
+        ScalarPrimitive::I128 => "__int128_t",
+        ScalarPrimitive::Isize => {
+            if usize_is_size_t {
+                "ptrdiff_t"
+            } else {
+                "intptr_t"
+            }
+        }
+        ScalarPrimitive::F32 => "float",
+        ScalarPrimitive::F64 => "double",
+        ScalarPrimitive::Bool => "bool",
+        ScalarPrimitive::Char => "uint32_t",
+        ScalarPrimitive::Str => "const char",
+    }
+}
+
+fn is_void(ty: &Type) -> bool {
+    matches!(ty, Type::Tuple(t) if t.elements.is_empty())
+}
+
+/// Write a symbol file listing exported dynamic symbols in `{ sym; ... };` format.
+pub fn write_symbol_file(symbols: &BTreeSet<String>, path: &Path) -> anyhow::Result<()> {
+    let mut out = String::from("{\n");
+    for sym in symbols {
+        out.push_str(sym);
+        out.push_str(";\n");
+    }
+    out.push_str("};");
+    fs_err::write(path, &out)?;
+    Ok(())
+}

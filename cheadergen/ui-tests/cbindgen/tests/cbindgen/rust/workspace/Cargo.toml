@@ -1,0 +1,17 @@
+[package]
+name = "workspace"
+version = "0.1.0"
+authors = ["cbindgen"]
+edition.workspace = true
+
+[dependencies.workspace-dep]
+path = "dep"
+
+[workspace]
+members = [
+    "../external_workspace_child",
+    "dep",
+]
+
+[workspace.package]
+edition = "2024"

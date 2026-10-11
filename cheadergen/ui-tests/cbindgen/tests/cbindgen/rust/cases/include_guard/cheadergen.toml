@@ -1,0 +1,4 @@
+autogen_warning = ""
+no_includes = true
+
+# `include_guard` was skipped: not supported by cheadergen

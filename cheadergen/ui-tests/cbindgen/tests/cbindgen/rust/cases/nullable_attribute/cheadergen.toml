@@ -1,0 +1,10 @@
+preamble = """
+#ifdef __clang__
+#define CBINDGEN_NULLABLE _Nullable
+#else
+#define CBINDGEN_NULLABLE
+#endif
+"""
+autogen_warning = ""
+
+# `ptr.nullable_attribute` was skipped: not supported by cheadergen

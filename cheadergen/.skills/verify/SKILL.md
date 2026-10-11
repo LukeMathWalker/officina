@@ -1,0 +1,86 @@
+---
+name: verify
+description: Runs the cheadergen verification workflow in stages - lint, format, generation tests, and full test suite. Use when user says "verify", "run checks", "run tests", or wants to validate changes before committing.
+---
+
+# Verify
+
+Run the project's verification workflow in stages, failing fast on the cheapest checks.
+
+## Instructions
+
+**Tip:** Add `--profile machine` to any `just test*` command to also write structured results to `target/nextest/machine/junit.xml`. Read the file after the run to get per-test pass/fail, failure messages, and timing without re-running or parsing terminal output.
+
+### Step 1: Format
+
+Run
+
+```bash
+just fmt
+```
+
+to ensure the code is formatted.
+
+### Step 2: Lint
+
+Run the linter, it's the fastest check:
+
+```bash
+just lint
+```
+
+If `just lint` fails, fix the reported clippy warnings before proceeding.
+
+### Step 3: Header generation tests
+
+Run generation tests only - these skip C/C++ compilation and give fast feedback:
+
+```bash
+just test-generate
+```
+
+If all tests pass, proceed to Step 4.
+
+#### Handling snapshot mismatches
+
+This project uses insta for snapshot testing. When expected output changes, tests fail and insta writes `.snap.new` files next to the existing `.snap` files.
+
+1. Read the `.snap.new` files to review the diffs and determine if the changes are expected
+2. Accept snapshots by moving the `.snap.new` file over the `.snap` file: `mv foo.snap.new foo.snap`
+   - To reject, simply delete the `.snap.new` file
+3. Re-run `just test-generate` to confirm the updated snapshots pass
+
+IMPORTANT: Do not use `cargo insta` commands (`cargo insta review`, `cargo insta accept`, etc.). Always move `.snap.new` files directly.
+
+**Cbindgen normal expectations are read-only.** Plain files (`.c`, `.hpp`, `.pyx`, `.c.sym`) under `ui-tests/cbindgen/` are vendored golden references from mozilla/cbindgen — never modify them. If a `header_diff` test starts matching the cbindgen expectation, the test will tell you to remove the `header_diff` marker from `test.toml`.
+
+**Cbindgen diff/stderr snapshots are mutable.** Files like `*.diff.c.snap` and `*.stderr.snap` under `ui-tests/cbindgen/` are insta snapshots that track cheadergen's current output. Accept these normally via `mv .snap.new .snap`.
+
+### Step 4: Full test suite
+
+Run the full suite if generation tests passed - this includes C/C++ compilation and takes longer:
+
+```bash
+just test
+```
+
+If compilation tests fail but generation tests passed, the issue is in the generated header output rather than snapshot content.
+
+## Scoping to specific cases
+
+All test commands accept extra nextest filter args:
+
+```bash
+# E.g. Run a specific test
+just test -E 'test(=cbindgen::generate::c::plain::alias)'
+```
+
+## Common Issues
+
+### Nightly toolchain missing
+
+If tests fail with a toolchain error, install nightly:
+
+```bash
+rustup toolchain install nightly
+```

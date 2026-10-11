@@ -1,0 +1,31 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#[unsafe(no_mangle)]
+#[expect(improper_ctypes_definitions)]
+pub unsafe extern "C" fn array_print(a: &[u64]) {
+    eprintln!("{:?}", a);
+}
+
+#[unsafe(no_mangle)]
+#[expect(improper_ctypes_definitions)]
+pub unsafe extern "C" fn array_test(a: [u64; 3]) {
+    array_print(&a);
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn unnamed(_: *const u64) {
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pointer_test(a: *const u64) {
+    let a = std::slice::from_raw_parts(a, 3);
+    array_print(a);
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn print_from_rust() {
+    let a = [0, 1, 2];
+    array_print(&a);
+}

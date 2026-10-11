@@ -1,0 +1,4 @@
+autogen_warning = ""
+
+[static]
+sort_by = "name"

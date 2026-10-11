@@ -1,0 +1,11 @@
+[package]
+name = "bitflags"
+version = "0.1.0"
+authors = ["cbindgen"]
+edition.workspace = true
+
+[dependencies]
+bitflags_crate = { package = "bitflags", version = "2" }
+
+[lints]
+workspace = true

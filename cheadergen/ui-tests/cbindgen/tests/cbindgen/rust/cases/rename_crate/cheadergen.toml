@@ -1,0 +1,9 @@
+preamble = """
+#if 0
+DEF DEFINE_FREEBSD = 0
+#endif
+"""
+autogen_warning = ""
+
+# `parse.parse_deps` was skipped: not supported by cheadergen
+# `defines.target_os = freebsd` was skipped: not supported by cheadergen

@@ -1,0 +1,15 @@
+[package]
+name = "mod_path"
+version = "0.1.0"
+authors = ["cbindgen"]
+edition.workspace = true
+
+[lib]
+name = "mod_path"
+crate-type = ["lib", "dylib"]
+
+[dependencies]
+cheadergen.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,15 @@
+preamble = """
+#if 0
+DEF PLATFORM_UNIX = 0
+DEF PLATFORM_WIN = 0
+#endif
+#define PLATFORM_UNIX 1
+"""
+autogen_warning = ""
+
+# `export.prefix` was skipped: not supported by cheadergen
+# `struct.associated_constants_in_body` was skipped: not supported by cheadergen
+# `const.allow_constexpr` was skipped: not supported by cheadergen
+# `macro_expansion.bitflags` was skipped: not supported by cheadergen
+# `defines.unix` was skipped: not supported by cheadergen
+# `defines.windows` was skipped: not supported by cheadergen

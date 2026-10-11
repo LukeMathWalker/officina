@@ -1,0 +1,302 @@
+use std::collections::{BTreeMap, HashMap, HashSet};
+
+use petgraph::Direction;
+use petgraph::graph::{DiGraph, NodeIndex};
+use rustdoc_ir::Type;
+
+use crate::Collection;
+use crate::analysis::{
+    CTypeDefinition, CTypeKind, SpanSortKey, c_type_name, missing_span_key, span_sort_key_global,
+};
+use crate::config::SortKey;
+use crate::diagnostic::DiagnosticSink;
+
+/// Sort type definitions in dependency order: types used **by value** in
+/// another type's fields are emitted first.
+///
+/// Within the same topological level, `sort_by` controls the order: source
+/// position (filename, line, column) or C name.
+///
+/// If a cycle exists in by-value dependencies (impossible in valid
+/// `#[repr(C)]` Rust), the remaining types are appended in `sort_by` order
+/// with a warning.
+pub fn topological_sort(
+    type_defs: &mut Vec<CTypeDefinition>,
+    sort_by: SortKey,
+    collection: &Collection,
+    diagnostics: &mut DiagnosticSink,
+) {
+    // Only compound types (structs, tagged unions) participate in ordering.
+    // Fieldless enums and opaques have no by-value dependencies on other compounds.
+    // We sort only the compounds and leave the rest untouched — codegen partitions
+    // by kind anyway.
+
+    // Separate compounds from others, preserving relative order of non-compounds.
+    let mut compounds: Vec<CTypeDefinition> = Vec::new();
+    let mut non_compounds: Vec<CTypeDefinition> = Vec::new();
+    let mut layout: Vec<bool> = Vec::new(); // true = compound slot
+
+    for def in type_defs.drain(..) {
+        let is_compound = matches!(
+            def.kind,
+            CTypeKind::Struct(_)
+                | CTypeKind::Union(_)
+                | CTypeKind::TaggedUnion(_)
+                | CTypeKind::Typedef(_)
+        );
+        layout.push(is_compound);
+        if is_compound {
+            compounds.push(def);
+        } else {
+            non_compounds.push(def);
+        }
+    }
+
+    if compounds.len() <= 1 {
+        // Nothing to sort; put everything back.
+        let mut nc_iter = non_compounds.into_iter();
+        let mut c_iter = compounds.into_iter();
+        for is_compound in &layout {
+            if *is_compound {
+                type_defs.push(c_iter.next().unwrap());
+            } else {
+                type_defs.push(nc_iter.next().unwrap());
+            }
+        }
+        return;
+    }
+
+    // Build name→node map.
+    let name_to_idx: HashMap<&str, usize> = compounds
+        .iter()
+        .enumerate()
+        .map(|(i, d)| (d.name.as_str(), i))
+        .collect();
+
+    let n = compounds.len();
+
+    // Build a dependency graph.
+    // Edge direction: dep → dependent (dep must be emitted before dependent).
+    let mut graph = DiGraph::<usize, ()>::with_capacity(n, 0);
+    let nodes: Vec<NodeIndex> = (0..n).map(|i| graph.add_node(i)).collect();
+
+    for (i, def) in compounds.iter().enumerate() {
+        for dep_name in by_value_dependencies(def) {
+            if let Some(&dep_idx) = name_to_idx.get(dep_name.as_str())
+                && dep_idx != i
+            {
+                graph.add_edge(nodes[dep_idx], nodes[i], ());
+            }
+        }
+    }
+
+    // Kahn's algorithm with a `sort_by` tiebreaker.
+    // The key includes the compound index as a final tiebreaker to guarantee
+    // uniqueness — two compounds with the same (span, name) must not
+    // collide in the BTreeMap, or one would be silently lost.
+    let sort_key = |idx: usize| -> (Option<SpanSortKey>, String, usize) {
+        let def = &compounds[idx];
+        // In name order the span component is absent, so the name decides.
+        let span = match sort_by {
+            SortKey::SourceOrder => Some(span_sort_key_for_def(def, collection)),
+            SortKey::Name => None,
+        };
+        (span, def.name.clone(), idx)
+    };
+
+    let mut in_degree: Vec<usize> = (0..n)
+        .map(|i| {
+            graph
+                .neighbors_directed(nodes[i], Direction::Incoming)
+                .count()
+        })
+        .collect();
+
+    // BTreeMap keyed by (span, name, idx) for deterministic, collision-free ordering.
+    let mut queue: BTreeMap<(Option<SpanSortKey>, String, usize), usize> = BTreeMap::new();
+    for (i, &deg) in in_degree.iter().enumerate() {
+        if deg == 0 {
+            queue.insert(sort_key(i), i);
+        }
+    }
+
+    let mut sorted_indices: Vec<usize> = Vec::with_capacity(n);
+
+    while let Some(entry) = queue.first_key_value().map(|(k, v)| (k.clone(), *v)) {
+        let (key, idx) = entry;
+        queue.remove(&key);
+        sorted_indices.push(idx);
+
+        for dependent in graph.neighbors_directed(nodes[idx], Direction::Outgoing) {
+            let dep_idx = graph[dependent];
+            in_degree[dep_idx] -= 1;
+            if in_degree[dep_idx] == 0 {
+                queue.insert(sort_key(dep_idx), dep_idx);
+            }
+        }
+    }
+
+    // Handle cycles.
+    if sorted_indices.len() < n {
+        let in_sorted: HashSet<usize> = sorted_indices.iter().copied().collect();
+
+        // Find SCCs — each non-trivial SCC contains at least one cycle.
+        let sccs = petgraph::algo::tarjan_scc(&graph);
+        let mut cycle_found = false;
+        for scc in &sccs {
+            if scc.len() < 2 {
+                continue;
+            }
+            cycle_found = true;
+            let cycle = extract_cycle_from_scc(scc, &graph, &compounds);
+            diagnostics
+                .warning(format!(
+                    "cycle detected in by-value type dependencies: {cycle}"
+                ))
+                .with_help("appending remaining types in `sort_by` order")
+                .emit();
+        }
+        if !cycle_found {
+            diagnostics
+                .warning(
+                    "topological sort did not converge, but no cycle was found; \
+                     this is a cheadergen bug",
+                )
+                .with_help("appending remaining types in `sort_by` order")
+                .emit();
+        }
+
+        let mut remaining: Vec<usize> = (0..n).filter(|i| !in_sorted.contains(i)).collect();
+        remaining.sort_by_cached_key(|&i| sort_key(i));
+        sorted_indices.extend(remaining);
+    }
+
+    // Reorder compounds according to sorted_indices.
+    let mut compounds_opt: Vec<Option<CTypeDefinition>> = compounds.into_iter().map(Some).collect();
+    let sorted_compounds: Vec<CTypeDefinition> = sorted_indices
+        .iter()
+        .map(|&i| compounds_opt[i].take().unwrap())
+        .collect();
+
+    // Reassemble type_defs: non-compounds keep their relative positions,
+    // compounds are placed in their slots in the new topological order.
+    let mut nc_iter = non_compounds.into_iter();
+    let mut c_iter = sorted_compounds.into_iter();
+    for is_compound in &layout {
+        if *is_compound {
+            type_defs.push(c_iter.next().unwrap());
+        } else {
+            type_defs.push(nc_iter.next().unwrap());
+        }
+    }
+}
+
+/// Walk the dependency edges within an SCC to extract a cycle in dependency order.
+///
+/// Edges in the graph point dep → dependent. We follow `Incoming` edges
+/// (i.e. "depends on") to trace the cycle in the order a developer would
+/// read: `A -> B -> C -> A` means A depends on B, B depends on C, C depends on A.
+fn extract_cycle_from_scc(
+    scc: &[NodeIndex],
+    graph: &DiGraph<usize, ()>,
+    compounds: &[CTypeDefinition],
+) -> String {
+    let scc_set: HashSet<NodeIndex> = scc.iter().copied().collect();
+
+    // Start from the node with the smallest name for deterministic output.
+    let start = *scc
+        .iter()
+        .min_by_key(|&&n| &compounds[graph[n]].name)
+        .unwrap();
+
+    // Walk Incoming edges (i.e. "depends on") within the SCC until we revisit
+    // a node already on the path. This is guaranteed to terminate: the SCC is
+    // finite, every node has at least one Incoming SCC-neighbor, so we must
+    // eventually revisit a node.
+    let mut path = vec![start];
+    let mut on_path: HashMap<NodeIndex, usize> = HashMap::new();
+    on_path.insert(start, 0);
+    let mut current = start;
+
+    let cycle_start_idx = loop {
+        // Pick the Incoming SCC-neighbor with the smallest name for determinism.
+        let next = graph
+            .neighbors_directed(current, Direction::Incoming)
+            .filter(|n| scc_set.contains(n))
+            .min_by_key(|&n| &compounds[graph[n]].name);
+        let Some(next) = next else {
+            // Should be unreachable in a valid SCC, but don't panic.
+            break 0;
+        };
+        if let Some(&idx) = on_path.get(&next) {
+            // Found a cycle: path[idx..] → next closes the loop.
+            path.push(next);
+            break idx;
+        }
+        on_path.insert(next, path.len());
+        path.push(next);
+        current = next;
+    };
+
+    // The cycle is path[cycle_start_idx..] (which already ends with the repeated node).
+    let cycle_path = &path[cycle_start_idx..];
+    let names: Vec<&str> = cycle_path
+        .iter()
+        .map(|&n| compounds[graph[n]].name.as_str())
+        .collect();
+    names.join(" -> ")
+}
+
+fn span_sort_key_for_def(def: &CTypeDefinition, collection: &Collection) -> SpanSortKey {
+    let Some(gid) = &def.rustdoc_id else {
+        return missing_span_key();
+    };
+    span_sort_key_global(gid, collection)
+}
+
+/// Extract the C type names that `def` depends on **by value** (not behind a pointer).
+fn by_value_dependencies(def: &CTypeDefinition) -> Vec<String> {
+    let mut deps = Vec::new();
+    match &def.kind {
+        CTypeKind::Struct(s) => {
+            for field in &s.fields {
+                collect_by_value_type_deps(&field.type_, &mut deps);
+            }
+        }
+        CTypeKind::Union(u) => {
+            for field in &u.fields {
+                collect_by_value_type_deps(&field.type_, &mut deps);
+            }
+        }
+        CTypeKind::TaggedUnion(t) => {
+            for variant in &t.variants {
+                if let Some(ref body) = variant.body {
+                    for field in &body.fields {
+                        collect_by_value_type_deps(&field.type_, &mut deps);
+                    }
+                }
+            }
+        }
+        CTypeKind::Typedef(t) => {
+            collect_by_value_type_deps(&t.inner, &mut deps);
+        }
+        CTypeKind::OpaqueStruct | CTypeKind::OpaqueUnion | CTypeKind::FieldlessEnum(_) => {}
+    }
+    deps
+}
+
+/// Recursively collect by-value type dependencies from a field type.
+fn collect_by_value_type_deps(ty: &Type, deps: &mut Vec<String>) {
+    match ty {
+        Type::Path(_) | Type::TypeAlias(_) => {
+            deps.push(c_type_name(ty));
+        }
+        Type::Array(a) => {
+            collect_by_value_type_deps(&a.element_type, deps);
+        }
+        // Pointers and references are NOT by-value dependencies.
+        Type::RawPointer(_) | Type::Reference(_) => {}
+        // Primitives, tuples, etc. have no compound dependencies.
+        _ => {}
+    }
+}

@@ -1,0 +1,8 @@
+[package]
+name = "generic_pointer"
+version = "0.1.0"
+authors = ["cbindgen"]
+edition.workspace = true
+
+[lints]
+workspace = true
