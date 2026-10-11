@@ -6,7 +6,7 @@ keywords = ["cargo", "cargo-px", "build", "scripts", "generate"]
 description = "Bindings to retrieve the environment variables set by cargo-px"
 categories = ["development-tools::cargo-plugins"]
 repository = "https://github.com/LukeMathWalker/officina"
-homepage = "https://github.com/LukeMathWalker/officina/tree/main/cargo-px"
+homepage = "https://github.com/LukeMathWalker/officina/tree/main/cargo-px/cargo_px_env"
 license = "Apache-2.0 OR MIT"
 
 [package.metadata.ci]
