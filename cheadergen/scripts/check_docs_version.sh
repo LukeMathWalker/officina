@@ -27,8 +27,9 @@ if [[ -z "${expected}" ]]; then
     exit 2
 fi
 
-# Match URLs pinned to a release tag: download/X.Y.Z/... or tag/X.Y.Z .
-pattern='cheadergen/releases/(download|tag)/[0-9]+\.[0-9]+\.[0-9]+'
+# Match URLs pinned to a release tag, in officina (tagged `cheadergen_cli-vX.Y.Z`)
+# or in the archived cheadergen repository (tagged `X.Y.Z`, up to 0.3.2).
+pattern='(officina/releases/(download|tag)/cheadergen_cli-v|cheadergen/releases/(download|tag)/)[0-9]+\.[0-9]+\.[0-9]+'
 
 mapfile -t matches < <(grep -rEHn "${pattern}" "${docs_dir}" || true)
 
@@ -53,7 +54,8 @@ else
             echo "error: docs reference release version(s) other than ${expected}:"
             printf '  %s\n' "${mismatches[@]}"
             echo
-            echo "Bump the URLs in docs/src/ to ${expected} and commit the change."
+            echo "Point the URLs in docs/src/ to the ${expected} release and commit the change:"
+            echo "  https://github.com/LukeMathWalker/officina/releases/download/cheadergen_cli-v${expected}/..."
         } >&2
         failed=1
     else

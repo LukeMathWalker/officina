@@ -63,3 +63,5 @@ jobs:
         run: dprint check
       - name: User guide
         run: mdbook build docs
+      - name: Docs pin the current release
+        run: bash scripts/check_docs_version.sh
