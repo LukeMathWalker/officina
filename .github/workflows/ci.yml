@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Selects the packages affected by the change and plans one job per (project, platform).
+  # See `tools/ci` for the rules, and `[package.metadata.ci]` in each package for its checks.
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+      projects: ${{ steps.select.outputs.projects }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The selector diffs against the merge base and loads the workspace there.
+          fetch-depth: 0
+          persist-credentials: false
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Select packages
+        id: select
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            args=(--base "$BASE_SHA" --head "$HEAD_SHA")
+          else
+            # Pushes to main and manual runs check everything.
+            args=(--base HEAD --everything)
+          fi
+          cargo ci select "${args[@]}" --github-output "$GITHUB_OUTPUT"
+
+  check:
+    name: ${{ matrix.name }}
+    needs: plan
+    if: needs.plan.outputs.matrix != '{"include":[]}'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: ${{ matrix.project }}-${{ matrix.platform }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - if: matrix.tools != ''
+        uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: ${{ matrix.tools }}
+      - name: Check
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          PACKAGES: ${{ matrix.packages }}
+        # `PACKAGES` is a space-separated list of package names.
+        run: cargo ci check --platform "$PLATFORM" $PACKAGES
+
+  # Projects needing more than the generic checks have their own workflow,
+  # named after the project.
+  cheadergen:
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.projects), 'cheadergen')
+    uses: ./.github/workflows/cheadergen.yml
+
+  # The single required check: succeeds if every job succeeded or was skipped.
+  ci-ok:
+    name: CI result
+    if: always()
+    needs: [plan, check, cheadergen]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
+          jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<< "$NEEDS" > /dev/null

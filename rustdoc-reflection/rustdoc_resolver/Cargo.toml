@@ -23,3 +23,6 @@ ahash = { workspace = true }
 once_cell = { workspace = true }
 tracing = { workspace = true, default-features = true }
 thiserror = { workspace = true }
+
+[package.metadata.ci]
+platforms = ["linux", "macos", "windows"]

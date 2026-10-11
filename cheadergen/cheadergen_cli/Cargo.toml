@@ -38,3 +38,7 @@ xdg-home = "1"
 [dev-dependencies]
 tempfile = "3"
 insta = "1"
+
+[package.metadata.ci]
+# Tested by the cheadergen workflow: the tests need a nightly toolchain, C compilers and Cython.
+tests = false
