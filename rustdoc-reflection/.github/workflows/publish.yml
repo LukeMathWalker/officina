@@ -1,0 +1,38 @@
+name: Publish crates to crates.io
+
+permissions:
+  contents: write
+  # Required by `rust-lang/crates-io-auth-action` for OIDC trusted publishing.
+  id-token: write
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release-plz:
+    name: release-plz release
+    runs-on: ubuntu-latest
+    # Only run on the merge commit that release-plz produces.
+    if: "startsWith(github.event.head_commit.message, 'chore: release')"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Authenticate with crates.io (trusted publishing)
+        uses: rust-lang/crates-io-auth-action@v1
+        id: crates-io-auth
+      - name: Run release-plz
+        uses: MarcoIeni/release-plz-action@v0.5
+        with:
+          command: release
+          project_manifest: Cargo.toml
+          config: .release-plz.toml
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-io-auth.outputs.token }}
