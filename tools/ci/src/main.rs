@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, bail};
 use clap::{Args, Parser, Subcommand};
 use officina_ci::config::Platform;
+use officina_ci::release::steps;
 use officina_ci::{Selection, Snapshot, check, git, plan, select, snapshot};
 
 /// Selects and runs the CI checks affected by a change.
@@ -44,6 +45,57 @@ enum Command {
         #[arg(long)]
         platform: Option<Platform>,
     },
+    /// Release the crates whose version isn't released yet, step by step.
+    #[command(subcommand)]
+    Release(ReleaseStep),
+}
+
+#[derive(Subcommand)]
+enum ReleaseStep {
+    /// Show what would be released, and why other crates aren't.
+    Plan {
+        /// Append the plan (and cargo-dist's build matrix) to this file using
+        /// the GitHub Actions output format (usually `$GITHUB_OUTPUT`).
+        #[arg(long)]
+        github_output: Option<PathBuf>,
+    },
+    /// Package the crates to release (verified), extract their release notes,
+    /// and write everything, with the release manifest, to a directory.
+    Package {
+        #[arg(long, default_value = "target/release")]
+        out: PathBuf,
+    },
+    /// Create or update the draft GitHub releases, and upload their assets.
+    Stage {
+        /// The manifest written by `package`.
+        #[arg(long)]
+        manifest: PathBuf,
+        /// The cargo-dist artifacts of each crate shipping binaries, in a
+        /// directory named after the crate.
+        #[arg(long)]
+        assets: PathBuf,
+        /// Only check and report what would be done.
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Publish the packaged crates to crates.io.
+    Publish {
+        /// The manifest written by `package`.
+        #[arg(long)]
+        manifest: PathBuf,
+        /// Check everything (`cargo publish --dry-run`), without uploading.
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Create the tags, then publish the draft GitHub releases.
+    Tag {
+        /// The manifest written by `package`.
+        #[arg(long)]
+        manifest: PathBuf,
+        /// Only report what would be done.
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Args)]
@@ -83,6 +135,7 @@ fn main() -> anyhow::Result<()> {
                 write_step_summary(Path::new(&path), &selection, &jobs)?;
             }
         }
+        Command::Release(step) => release(&repository, step)?,
         Command::Check {
             targets,
             change,
@@ -158,12 +211,64 @@ fn select_changes(
 
 /// Loads the workspace rooted at `dir`, requiring an up-to-date `Cargo.lock`.
 fn load_snapshot(dir: &Path) -> anyhow::Result<Snapshot> {
-    let graph = guppy::MetadataCommand::new()
+    snapshot(&load_graph(dir)?)
+}
+
+/// Loads the package graph of the workspace rooted at `dir`, requiring an
+/// up-to-date `Cargo.lock`.
+fn load_graph(dir: &Path) -> anyhow::Result<guppy::graph::PackageGraph> {
+    guppy::MetadataCommand::new()
         .current_dir(dir)
         .other_options(["--locked".to_owned()])
         .build_graph()
-        .with_context(|| format!("`cargo metadata --locked` failed in `{}`", dir.display()))?;
-    snapshot(&graph)
+        .with_context(|| format!("`cargo metadata --locked` failed in `{}`", dir.display()))
+}
+
+fn release(repository: &Path, step: ReleaseStep) -> anyhow::Result<()> {
+    let graph = load_graph(repository)?;
+    match step {
+        ReleaseStep::Plan { github_output } => {
+            let (plan, _) = steps::plan(repository, &graph)?;
+            steps::print_plan(&plan);
+            if let Some(path) = github_output {
+                let dist_matrix = steps::dist_matrix(repository, &plan)?;
+                let mut file = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&path)
+                    .with_context(|| format!("failed to open `{}`", path.display()))?;
+                writeln!(file, "has-release={}", !plan.crates.is_empty())?;
+                writeln!(file, "dist-matrix={dist_matrix}")?;
+            }
+        }
+        ReleaseStep::Package { out } => {
+            steps::package(repository, &graph, &repository.join(out))?;
+        }
+        ReleaseStep::Stage {
+            manifest,
+            assets,
+            dry_run,
+        } => {
+            steps::stage(
+                repository,
+                &steps::read_manifest(&manifest)?,
+                &assets,
+                dry_run,
+            )?;
+        }
+        ReleaseStep::Publish { manifest, dry_run } => {
+            steps::publish(
+                repository,
+                &graph,
+                &steps::read_manifest(&manifest)?,
+                dry_run,
+            )?;
+        }
+        ReleaseStep::Tag { manifest, dry_run } => {
+            steps::tag(repository, &steps::read_manifest(&manifest)?, dry_run)?;
+        }
+    }
+    Ok(())
 }
 
 /// Expands package and project names into package names.

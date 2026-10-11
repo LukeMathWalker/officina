@@ -9,6 +9,8 @@ cargo ci check
 cargo ci check biscotti cheadergen
 # Show what CI would run for your changes, and why.
 cargo ci select
+# Show what would be released, and why other crates aren't.
+cargo ci release plan
 ```
 
 ## How CI works
@@ -55,3 +57,39 @@ tools = ["cargo-rdme"]
 ```
 
 Unknown fields are rejected, so typos fail CI instead of being ignored.
+
+## Releases
+
+`cargo ci release <step>` releases the crates whose version isn't released yet.
+Versions and changelogs are bumped beforehand, in release PRs (`release-plz.toml`).
+
+1. `plan`: the crates to release, their tags (`<crate>-v<version>`) and their
+   GitHub releases.
+2. `package`: verified `.crate` files, release notes from the changelogs, and a
+   manifest with their checksums. cargo-dist builds the binaries
+   (`dist-workspace.toml`, and `[package.metadata.dist] dist = true`).
+3. `stage`: draft GitHub releases, with the binaries attached.
+4. `publish`: repackage, compare with the manifest's checksums, then upload to
+   crates.io.
+5. `tag`: create the tags, then publish the draft releases.
+
+**A tag marks a completed release.** A crate is released if its version has no
+tag, and isn't on crates.io (or is, with our checksum: a previous run published
+it but didn't finish). Every step is idempotent: rerunning an interrupted
+release finishes it. `stage`, `publish` and `tag` take `--dry-run`.
+
+By default, each crate gets its own GitHub release. Crates versioned together
+can share one:
+
+```toml
+[package.metadata.release]
+# The GitHub release's name. Default: the crate's name.
+name = "cheadergen"
+# The changelog with the release notes, relative to the package directory.
+changelog = "../CHANGELOG.md"
+# Crates released together with this one, in this crate's GitHub release.
+includes = ["cheadergen", "cheadergen_macros"]
+```
+
+A crate shipping binaries must have its own release (or include others):
+its installers download from its tag.
