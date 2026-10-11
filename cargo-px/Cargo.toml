@@ -1,6 +1,3 @@
-[workspace]
-members = [".", "cargo_px_env"]
-
 [package]
 name = "cargo-px"
 version = "0.1.20"
@@ -46,8 +43,3 @@ features = [
     "Win32_System_IO",
     "Win32_System_Console",
 ]
-
-# The profile that 'cargo dist' will build with
-[profile.dist]
-inherits = "release"
-lto = "thin"

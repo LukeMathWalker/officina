@@ -1,10 +1,10 @@
 [package]
 name = "rustdoc_processor"
 description = "Compute, cache, index, and query rustdoc JSON documentation"
-edition.workspace = true
-repository.workspace = true
-homepage.workspace = true
-license.workspace = true
+edition = "2024"
+repository = "https://github.com/LukeMathWalker/rustdoc-reflection"
+homepage = "https://github.com/LukeMathWalker/rustdoc-reflection"
+license = "Apache-2.0"
 version = "0.1.1"
 keywords = ["rustdoc-json", "reflection", "rustdoc"]
 categories = ["development-tools", "caching"]
@@ -14,7 +14,7 @@ clippy = { large_enum_variant = "allow", result_large_err = "allow" }
 
 [dependencies]
 # Core dependencies
-rustdoc-types = { workspace = true }
+rustdoc-types = { workspace = true, features = ["rustc-hash", "rkyv_0_8"] }
 rustdoc_ext = { workspace = true }
 rustdoc_ir = { workspace = true }
 

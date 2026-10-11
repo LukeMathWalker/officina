@@ -1,10 +1,10 @@
 [package]
 name = "rustdoc_ir"
 description = "An Intermediate Representation for Rust types and functions"
-edition.workspace = true
-repository.workspace = true
-homepage.workspace = true
-license.workspace = true
+edition = "2024"
+repository = "https://github.com/LukeMathWalker/rustdoc-reflection"
+homepage = "https://github.com/LukeMathWalker/rustdoc-reflection"
+license = "Apache-2.0"
 version = "0.1.1"
 keywords = ["rustdoc-json", "reflection", "rustdoc"]
 categories = ["development-tools", "data-structures"]
@@ -17,7 +17,7 @@ guppy = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 serde = { workspace = true, features = ["derive"] }
 syn = { workspace = true }
-rustdoc-types = { workspace = true }
+rustdoc-types = { workspace = true, features = ["rustc-hash", "rkyv_0_8"] }
 rustdoc_ext = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }

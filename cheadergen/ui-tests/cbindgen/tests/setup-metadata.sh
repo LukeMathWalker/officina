@@ -3,11 +3,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+# Ask cargo where build artifacts go: the workspace root is above this project.
+TARGET_DIR="$(cargo metadata --no-deps --format-version 1 | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')"
 
 # Build the cheadergen binary so tests can invoke it.
 cargo build --bin cheadergen
-echo "CARGO_BIN_EXE_cheadergen=$WORKSPACE_ROOT/target/debug/cheadergen" >> "$NEXTEST_ENV"
+echo "CARGO_BIN_EXE_cheadergen=$TARGET_DIR/debug/cheadergen" >> "$NEXTEST_ENV"
 
 cargo metadata --all-features --format-version 1 \
     --manifest-path "$SCRIPT_DIR/cbindgen/rust/cases/Cargo.toml" \
@@ -26,6 +27,6 @@ echo "CBINDGEN_WORKSPACE_METADATA=$SCRIPT_DIR/cbindgen/rust/workspace/metadata.j
 # every input rustdoc output can depend on (e.g. files pulled in via
 # `include_str!`). The test suite doesn't exercise those edge cases.
 export __CHEADERGEN_CACHE_WORKSPACE_DOCS=1
-CHEADERGEN="$WORKSPACE_ROOT/target/debug/cheadergen"
+CHEADERGEN="$TARGET_DIR/debug/cheadergen"
 "$CHEADERGEN" cache warm --metadata "$SCRIPT_DIR/cbindgen/rust/cases/metadata.json"
 "$CHEADERGEN" cache warm --metadata "$SCRIPT_DIR/cbindgen/rust/workspace/metadata.json"

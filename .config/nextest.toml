@@ -4,13 +4,13 @@ experimental = ["setup-scripts"]
 dir = "target/nextest"
 
 [scripts.setup.compute-cbindgen-metadata]
-command = ["ui-tests/cbindgen/tests/setup-metadata.sh"]
+command = ["cheadergen/ui-tests/cbindgen/tests/setup-metadata.sh"]
 
 [scripts.setup.compute-cheadergen-metadata]
-command = ["ui-tests/cheadergen/tests/setup-metadata.sh"]
+command = ["cheadergen/ui-tests/cheadergen/tests/setup-metadata.sh"]
 
 [scripts.setup.build-cheadergen]
-command = ["cheadergen_cli/tests/setup.sh"]
+command = ["cheadergen/cheadergen_cli/tests/setup.sh"]
 
 [[profile.default.scripts]]
 filter = 'package(=cbindgen-ui-tests) & (test(~::generate::) | test(~::symbol::))'

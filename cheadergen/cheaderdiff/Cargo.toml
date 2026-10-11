@@ -1,8 +1,8 @@
 [package]
 name = "cheaderdiff"
 version = "0.1.0"
-edition.workspace = true
-license.workspace = true
+edition = "2024"
+license = "Apache-2.0"
 publish = false
 
 [dependencies]
@@ -13,5 +13,11 @@ tree-sitter-c = "0.23"
 [dev-dependencies]
 insta = "1"
 
-[lints]
-workspace = true
+[lints.clippy]
+# Use `#[expect]` instead of `#[allow]` so we are warned when they become obsolete.
+allow_attributes = "warn"
+
+[lints.rustdoc]
+# Our doc comments are designed for contributors, not end-users.
+# Therefore there's no issue with private intra-doc links.
+private-intra-doc-links = "allow"

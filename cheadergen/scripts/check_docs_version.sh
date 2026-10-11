@@ -11,13 +11,14 @@
 
 set -euo pipefail
 
-repo_root=$(git rev-parse --show-toplevel)
+# The cheadergen project root (one level above this script), not the git root.
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 docs_dir="${repo_root}/docs/src"
 
 if [[ $# -ge 1 ]]; then
     expected="$1"
 else
-    expected=$(cargo pkgid -p cheadergen_cli --manifest-path "${repo_root}/Cargo.toml" \
+    expected=$(cargo pkgid -p cheadergen_cli --manifest-path "${repo_root}/cheadergen_cli/Cargo.toml" \
         | awk -F'#' '{print $2}')
 fi
 

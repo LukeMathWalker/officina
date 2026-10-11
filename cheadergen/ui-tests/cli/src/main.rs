@@ -356,7 +356,11 @@ fn cmd_translate_configs() {
         }
     }
 
-    let cheadergen_bin = root.join("target/debug/cheadergen");
+    // Build artifacts live in the Cargo workspace root, one level above the cheadergen project.
+    let cheadergen_bin = root
+        .parent()
+        .expect("cheadergen must be inside the Cargo workspace")
+        .join("target/debug/cheadergen");
 
     let mut failures = Vec::new();
     let mut modified = 0u32;

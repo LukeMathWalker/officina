@@ -2,6 +2,8 @@
 name = "workspace-dep"
 version = "0.1.0"
 authors = ["cbindgen"]
-edition.workspace = true
+# Not inherited: other fixture workspaces (e.g. `cases/literal_target`) load this crate as a path
+# dependency, and Cargo would then resolve inherited fields from the outermost workspace root.
+edition = "2024"
 
 [dependencies]

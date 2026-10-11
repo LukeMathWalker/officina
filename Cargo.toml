@@ -1,0 +1,85 @@
+[workspace]
+resolver = "3"
+members = [
+    # actix-web-flash-messages
+    "actix-web-flash-messages/actix-web-flash-messages",
+    "actix-web-flash-messages/examples/cookies",
+    "actix-web-flash-messages/examples/session-cookie",
+    "actix-web-flash-messages/examples/session-redis",
+    # biscotti
+    "biscotti",
+    # bunyan
+    "bunyan",
+    # cargo-like-utils
+    "cargo-like-utils",
+    # cargo-px
+    "cargo-px",
+    "cargo-px/cargo_px_env",
+    # cheadergen
+    "cheadergen/cheaderdiff",
+    "cheadergen/cheadergen",
+    "cheadergen/cheadergen_cli",
+    "cheadergen/cheadergen_macros",
+    "cheadergen/ui-tests/cbindgen",
+    "cheadergen/ui-tests/cheadergen",
+    "cheadergen/ui-tests/cli",
+    "cheadergen/ui-tests/toolkit",
+    # rustdoc-reflection
+    "rustdoc-reflection/rustdoc_ext",
+    "rustdoc-reflection/rustdoc_ir",
+    "rustdoc-reflection/rustdoc_processor",
+    "rustdoc-reflection/rustdoc_resolver",
+    # tracing-bunyan-formatter
+    "tracing-bunyan-formatter",
+    # tracing-panic
+    "tracing-panic",
+    # tracing_log_error
+    "tracing_log_error",
+]
+
+[workspace.dependencies]
+# Crates in this repository
+cheadergen = { path = "cheadergen/cheadergen", version = "0.3.2" }
+cheadergen_cli = { path = "cheadergen/cheadergen_cli", version = "0.3.2" }
+cheadergen_macros = { path = "cheadergen/cheadergen_macros", version = "0.3.2" }
+rustdoc_ext = { path = "rustdoc-reflection/rustdoc_ext", version = "0.1.1" }
+rustdoc_ir = { path = "rustdoc-reflection/rustdoc_ir", version = "0.1.1" }
+rustdoc_processor = { path = "rustdoc-reflection/rustdoc_processor", version = "0.1.1" }
+rustdoc_resolver = { path = "rustdoc-reflection/rustdoc_resolver", version = "0.1.1" }
+tracing_log_error = { path = "tracing_log_error", version = "0.1" }
+
+# Third-party crates
+ahash = "0.8"
+anyhow = "1.0.100"
+bimap = "0.6.3"
+bincode = "2"
+camino = "1"
+elsa = "1.11.2"
+fs-err = "3"
+globwalk = "0.9.1"
+guppy = "0.17.26"
+indexmap = "2"
+itertools = "0.14"
+num_cpus = "1.17.0"
+once_cell = "1.21.3"
+r2d2 = "0.8"
+r2d2_sqlite = "0.25.0"
+rayon = "1.11"
+rkyv = { version = "0.8", default-features = false, features = ["std"] }
+rusqlite = "0.32"
+rustc-hash = "2"
+rustdoc-types = "0.57.3"
+semver = "1.0.27"
+serde = "1.0.228"
+serde_json = "1.0.145"
+serde_stacker = "0.1"
+syn = "2.0"
+thiserror = "2"
+toml = "0.9.10"
+tracing = { version = "0.1.44", default-features = false }
+xxhash-rust = "0.8.15"
+
+# The profile that 'cargo dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

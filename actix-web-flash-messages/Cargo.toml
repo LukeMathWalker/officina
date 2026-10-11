@@ -1,4 +1,0 @@
-[workspace]
-members = ["actix-web-flash-messages", "examples/cookies", "examples/session-cookie", "examples/session-redis"]
-default-members = ["actix-web-flash-messages", "examples/cookies", "examples/session-cookie", "examples/session-redis"]
-

@@ -7,6 +7,9 @@ set positional-arguments
 # `CHEADERGEN_DOC_TOOLCHAIN=...` if needed.
 docs_toolchain := env_var_or_default("CHEADERGEN_DOC_TOOLCHAIN", trim(shell("cat 'cheadergen_cli/rust-docs-toolchain'")))
 
+# The Cargo workspace spans the whole repository: scope cargo commands to cheadergen's packages.
+packages := "-p cheaderdiff -p cheadergen -p cheadergen_cli -p cheadergen_macros -p cbindgen-ui-tests -p cheadergen-ui-tests -p ui-tests -p ui_tests_toolkit"
+
 # Format all files
 # Use `just fmt check` to verify rather than format
 fmt action="fmt":
@@ -14,11 +17,11 @@ fmt action="fmt":
 
 # Run linter
 lint:
-    cargo clippy --workspace --all-targets -- -D warnings
+    cargo clippy {{ packages }} --all-targets -- -D warnings
 
 # Build docs and fail on warnings
 doc:
-    RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --document-private-items --lib
+    RUSTDOCFLAGS="-D warnings" cargo doc {{ packages }} --no-deps --document-private-items --lib
 
 # Build the user guide (mdbook) into docs/book
 book:
@@ -39,7 +42,7 @@ docs-check-version *args:
 #   just test -E 'test(=cbindgen::generate::c::plain::alias)'
 # to run a single test.
 test +args="":
-    cargo nextest run --no-fail-fast --no-tests pass "$@"
+    cargo nextest run {{ packages }} --no-fail-fast --no-tests pass "$@"
 
 # Run only cbindgen tests
 test-cbindgen +args="":
