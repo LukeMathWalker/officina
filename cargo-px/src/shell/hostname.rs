@@ -19,8 +19,7 @@ pub fn hostname() -> io::Result<OsString> {
     }
     #[cfg(not(unix))]
     {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
+        Err(io::Error::other(
             "hostname could not be found on unsupported platform",
         ))
     }
