@@ -88,8 +88,11 @@ In CI:
   and build binaries (read-only), stage, publish (trusted publishing, in the
   `release` environment), then tag. Run it manually for a dry run, on any branch
   (e.g. a release PR's), or for real on `main` to finish an interrupted release.
-- CI runs `cargo ci release plan` on every PR, so release problems show up
-  before merging.
+- CI runs `cargo ci release plan` on every PR and, on PRs with something to
+  release, rehearses everything before publishing except building binaries
+  (`package`, and `dist plan`), so release problems show up before merging.
+- Released crates, binaries and installers get build provenance attestations:
+  `gh attestation verify <file> --repo LukeMathWalker/officina`.
 
 By default, each crate gets its own GitHub release. Crates versioned together
 can share one:

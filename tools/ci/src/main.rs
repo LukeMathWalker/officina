@@ -55,10 +55,14 @@ enum ReleaseStep {
     /// Show what would be released, and why other crates aren't.
     Plan {
         /// Append the plan to this file using the GitHub Actions output format
-        /// (usually `$GITHUB_OUTPUT`): whether there's anything to release,
-        /// cargo-dist's build matrix, and the crates shipping binaries.
+        /// (usually `$GITHUB_OUTPUT`): whether there's anything to release
+        /// and, with `--dist`, cargo-dist's build matrix and the crates
+        /// shipping binaries.
         #[arg(long)]
         github_output: Option<PathBuf>,
+        /// Also plan the binaries' builds with `dist plan` (requires cargo-dist).
+        #[arg(long)]
+        dist: bool,
     },
     /// Package the crates to release (verified), extract their release notes,
     /// and write everything, with the release manifest, to a directory.
@@ -228,17 +232,25 @@ fn load_graph(dir: &Path) -> anyhow::Result<guppy::graph::PackageGraph> {
 fn release(repository: &Path, step: ReleaseStep) -> anyhow::Result<()> {
     // `stage` and `tag` only need the manifest and GitHub: no Rust toolchain.
     match step {
-        ReleaseStep::Plan { github_output } => {
+        ReleaseStep::Plan {
+            github_output,
+            dist,
+        } => {
             let (plan, _) = steps::plan(repository, &load_graph(repository)?)?;
             steps::print_plan(&plan);
+            let dist_matrix = dist
+                .then(|| steps::dist_matrix(repository, &plan))
+                .transpose()?;
             if let Some(path) = github_output {
-                let dist_matrix = steps::dist_matrix(repository, &plan)?;
                 let mut file = std::fs::OpenOptions::new()
                     .create(true)
                     .append(true)
                     .open(&path)
                     .with_context(|| format!("failed to open `{}`", path.display()))?;
                 writeln!(file, "has-release={}", !plan.crates.is_empty())?;
+                let Some(dist_matrix) = dist_matrix else {
+                    return Ok(());
+                };
                 writeln!(file, "dist-matrix={dist_matrix}")?;
                 let dist_releases: Vec<_> = plan
                     .releases

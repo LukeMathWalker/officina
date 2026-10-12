@@ -74,7 +74,7 @@ jobs:
           path: target/release/officina-ci
       - name: Plan
         id: plan
-        run: target/release/officina-ci release plan --github-output "$GITHUB_OUTPUT"
+        run: target/release/officina-ci release plan --github-output "$GITHUB_OUTPUT" --dist
 
   package:
     name: Package crates
@@ -226,6 +226,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # Build provenance attestations.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -243,6 +246,32 @@ jobs:
         with:
           pattern: binaries-*
           path: ${{ runner.temp }}/assets
+      - name: Collect the release's files
+        id: collect
+        env:
+          RELEASE: ${{ runner.temp }}/release
+          ASSETS: ${{ runner.temp }}/assets
+        run: |
+          # `binaries-<crate>` artifacts hold the assets of `<crate>`'s release.
+          mkdir -p "$ASSETS"
+          for dir in "$ASSETS"/binaries-*; do
+            [[ -d "$dir" ]] && mv "$dir" "$ASSETS/${dir##*/binaries-}"
+          done
+          # Everything we release: the packaged crates, the binaries and their installers.
+          # Listed in place: crates shipping binaries have files with the same names.
+          {
+            echo "paths<<EOF"
+            find "$RELEASE" -maxdepth 1 -type f -name '*.crate'
+            find "$ASSETS" -type f
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      # Provenance, verifiable with `gh attestation verify <file> --repo <repository>`.
+      # Attestations are public, so dry runs skip them.
+      - name: Attest
+        if: env.DRY_RUN == ''
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ steps.collect.outputs.paths }}
       - name: Stage
         env:
           GH_TOKEN: ${{ github.token }}
@@ -252,11 +281,6 @@ jobs:
           ASSETS: ${{ runner.temp }}/assets
         run: |
           chmod +x "$OFFICINA_CI"
-          # `binaries-<crate>` artifacts hold the assets of `<crate>`'s release.
-          mkdir -p "$ASSETS"
-          for dir in "$ASSETS"/binaries-*; do
-            [[ -d "$dir" ]] && mv "$dir" "$ASSETS/${dir##*/binaries-}"
-          done
           "$OFFICINA_CI" release stage --manifest "$RELEASE/manifest.json" --assets "$ASSETS" $DRY_RUN
 
   publish:
