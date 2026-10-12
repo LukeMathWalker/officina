@@ -84,7 +84,8 @@ In CI:
   push to `main` (release-plz, with a GitHub App's token so that CI runs on it:
   the `RELEASE_PLZ_APP_CLIENT_ID` variable and `RELEASE_PLZ_APP_PRIVATE_KEY` secret,
   in the `release-pr` environment, restricted to `main`).
-- `.github/workflows/release.yml` runs after CI passes on `main`: plan, package
+- `.github/workflows/release.yml` is started by CI once it passes on `main`
+  (with `workflow_dispatch`: trusted publishing rejects `workflow_run`): plan, package
   and build binaries (read-only), stage, publish (trusted publishing, in the
   `release` environment), then tag. Run it manually for a dry run, on any branch
   (e.g. a release PR's), or for real on `main` to finish an interrupted release.

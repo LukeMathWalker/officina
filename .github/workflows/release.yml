@@ -1,23 +1,22 @@
 # Releases the crates whose version isn't released yet (see `tools/ci/README.md`).
 #
-# Runs after CI passes on main. Everything is packaged and built first; publishing
+# Started by CI once it passes on main (see `ci.yml`), or manually. Everything is packaged and built first; publishing
 # only uploads what was packaged, and tags come last: a tag marks a completed release.
 # Every step is idempotent: rerun the workflow to finish an interrupted release.
 name: Release
 
-# `workflow_run` is safe here: only CI runs of pushes to main that succeeded, checked out at
-# that commit, with no artifacts from the triggering run.
-on: # zizmor: ignore[dangerous-triggers]
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
+# Only `workflow_dispatch`: crates.io's trusted publishing doesn't accept `workflow_run`.
+on:
   workflow_dispatch:
     inputs:
       dry-run:
         description: Run every check without staging, publishing or tagging anything.
         type: boolean
         default: true
+      commit:
+        description: The commit to release. Defaults to the selected branch's head.
+        type: string
+        default: ""
 
 permissions: {}
 
@@ -27,13 +26,11 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run && '--dry-run' || '' }}
+  DRY_RUN: ${{ inputs.dry-run && '--dry-run' || '' }}
 
 jobs:
   plan:
     name: Plan
-    # Only commits that passed CI after being pushed to main, or manual runs.
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -46,11 +43,10 @@ jobs:
       - name: Choose the commit
         id: commit
         env:
-          COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
-          EVENT_NAME: ${{ github.event_name }}
+          COMMIT: ${{ inputs.commit || github.sha }}
           REF: ${{ github.ref }}
         run: |
-          if [[ "$EVENT_NAME" == "workflow_dispatch" && -z "$DRY_RUN" && "$REF" != "refs/heads/main" ]]; then
+          if [[ -z "$DRY_RUN" && "$REF" != "refs/heads/main" ]]; then
             echo "::error::Only dry runs can release another branch than main."
             exit 1
           fi
@@ -58,7 +54,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.commit.outputs.commit }}
+          # The whole history, to check that the commit is on main.
+          fetch-depth: 0
           persist-credentials: false
+      - name: Check that the commit is on main
+        if: env.DRY_RUN == ''
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::Only commits on main can be released."
+            exit 1
+          fi
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -288,7 +293,7 @@ jobs:
     needs: [plan, stage]
     runs-on: ubuntu-latest
     # Trusted publishing: crates.io only accepts this workflow, in this environment.
-    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run && 'release-dry-run' || 'release' }}
+    environment: ${{ inputs.dry-run && 'release-dry-run' || 'release' }}
     permissions:
       contents: read
       id-token: write

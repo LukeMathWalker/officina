@@ -145,3 +145,20 @@ jobs:
         run: |
           jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
           jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<< "$NEEDS" > /dev/null
+
+  # Starts the release of what this push to main bumped, on the commit CI just checked.
+  # A dispatch rather than `workflow_run` in `release.yml`: crates.io's trusted publishing
+  # doesn't accept `workflow_run`. `GITHUB_TOKEN` can trigger `workflow_dispatch`.
+  release:
+    name: Start the release
+    needs: ci-ok
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.ci-ok.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          COMMIT: ${{ github.sha }}
+        run: gh workflow run release.yml --ref main -f dry-run=false -f commit="$COMMIT"
