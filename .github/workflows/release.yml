@@ -291,6 +291,9 @@ jobs:
   publish:
     name: Publish to crates.io
     needs: [plan, stage]
+    # `!cancelled()`: without it, binary jobs skipped upstream (releases without binaries)
+    # skip every following job.
+    if: ${{ !cancelled() && needs.stage.result == 'success' }}
     runs-on: ubuntu-latest
     # Trusted publishing: crates.io only accepts this workflow, in this environment.
     environment: ${{ inputs.dry-run && 'release-dry-run' || 'release' }}
@@ -328,6 +331,7 @@ jobs:
   tag:
     name: Tag and publish GitHub releases
     needs: [plan, publish]
+    if: ${{ !cancelled() && needs.publish.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -358,7 +362,7 @@ jobs:
   refresh-release-pr:
     name: Refresh the release PR
     needs: tag
-    if: ${{ !inputs.dry-run }}
+    if: ${{ !cancelled() && !inputs.dry-run && needs.tag.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       actions: write

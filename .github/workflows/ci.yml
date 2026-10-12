@@ -152,7 +152,8 @@ jobs:
   release:
     name: Start the release
     needs: ci-ok
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.ci-ok.result == 'success'
+    # `!cancelled()`: without it, jobs skipped upstream (e.g. the release rehearsal) skip this one.
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.ci-ok.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
