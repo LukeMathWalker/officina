@@ -18,6 +18,8 @@ jobs:
   release-pr:
     name: Release PR
     runs-on: ubuntu-latest
+    # Holds the GitHub App's credentials, restricted to `main`.
+    environment: release-pr
     # The PR is opened with a GitHub App's token, not `GITHUB_TOKEN`: PRs opened
     # with `GITHUB_TOKEN` don't trigger CI.
     permissions: {}
@@ -29,7 +31,7 @@ jobs:
           PRIVATE_KEY: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
         run: |
           if [[ -z "$CLIENT_ID" || -z "$PRIVATE_KEY" ]]; then
-            echo "::warning::Skipped: set the RELEASE_PLZ_APP_CLIENT_ID variable and the RELEASE_PLZ_APP_PRIVATE_KEY secret."
+            echo "::warning::Skipped: set the RELEASE_PLZ_APP_CLIENT_ID variable and the RELEASE_PLZ_APP_PRIVATE_KEY secret in the release-pr environment."
             echo "available=false" >> "$GITHUB_OUTPUT"
           else
             echo "available=true" >> "$GITHUB_OUTPUT"
