@@ -1,6 +1,6 @@
 [package]
 name = "tracing_log_error"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/tracing_log_error"
 keywords = ["tracing", "telemetry", "logging", "error-handling"]

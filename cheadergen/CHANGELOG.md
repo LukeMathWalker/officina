@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3](https://github.com/LukeMathWalker/officina/compare/cheadergen-v0.3.2...cheadergen-v0.3.3) - 2026-10-12
+
+### ⚙️ Other
+
+- _(workspace)_ prepare releases from officina ([#5](https://github.com/LukeMathWalker/officina/pull/5)) (by @LukeMathWalker)
+- Unify all crates into a single Cargo workspace (by @LukeMathWalker) - #1
+- _(workspace)_ add release steps to officina-ci ([#6](https://github.com/LukeMathWalker/officina/pull/6)) (by @LukeMathWalker)
+- _(workspace)_ run CI from the repository root, planned per project and platform ([#4](https://github.com/LukeMathWalker/officina/pull/4)) (by @LukeMathWalker)
+
+### Contributors
+
+- @LukeMathWalker
+
 ## [0.3.2](https://github.com/LukeMathWalker/cheadergen/compare/0.3.1...0.3.2) - 2026-08-12
 
 ### 🐛 Bug Fixes

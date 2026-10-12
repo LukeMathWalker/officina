@@ -1,6 +1,6 @@
 [package]
 name = "tracing-panic"
-version = "0.1.2"
+version = "0.1.3"
 categories = ["development-tools::debugging"]
 edition = "2021"
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/tracing-panic"

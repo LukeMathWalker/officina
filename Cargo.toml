@@ -41,13 +41,13 @@ members = [
 
 [workspace.dependencies]
 # Crates in this repository
-cheadergen = { path = "cheadergen/cheadergen", version = "0.3.2" }
-cheadergen_cli = { path = "cheadergen/cheadergen_cli", version = "0.3.2" }
-cheadergen_macros = { path = "cheadergen/cheadergen_macros", version = "0.3.2" }
-rustdoc_ext = { path = "rustdoc-reflection/rustdoc_ext", version = "0.1.1" }
-rustdoc_ir = { path = "rustdoc-reflection/rustdoc_ir", version = "0.1.1" }
-rustdoc_processor = { path = "rustdoc-reflection/rustdoc_processor", version = "0.1.1" }
-rustdoc_resolver = { path = "rustdoc-reflection/rustdoc_resolver", version = "0.1.1" }
+cheadergen = { path = "cheadergen/cheadergen", version = "0.3.3" }
+cheadergen_cli = { path = "cheadergen/cheadergen_cli", version = "0.3.3" }
+cheadergen_macros = { path = "cheadergen/cheadergen_macros", version = "0.3.3" }
+rustdoc_ext = { path = "rustdoc-reflection/rustdoc_ext", version = "0.1.2" }
+rustdoc_ir = { path = "rustdoc-reflection/rustdoc_ir", version = "0.1.2" }
+rustdoc_processor = { path = "rustdoc-reflection/rustdoc_processor", version = "0.1.2" }
+rustdoc_resolver = { path = "rustdoc-reflection/rustdoc_resolver", version = "0.1.2" }
 tracing_log_error = { path = "tracing_log_error", version = "0.1" }
 
 # Third-party crates

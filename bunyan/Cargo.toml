@@ -1,6 +1,6 @@
 [package]
 name = "bunyan"
-version = "0.1.9"
+version = "0.1.10"
 authors = ["Luca Palmieri <rust@lpalmieri.com>"]
 edition = "2018"
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/bunyan"
