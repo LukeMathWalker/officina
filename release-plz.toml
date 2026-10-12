@@ -57,12 +57,6 @@ body = """
 {% endmacro -%}
 """
 
-commit_preprocessors = [
-    # Made in an old repository after its crate's last release: link the pull request there.
-    { pattern = '^Add license files \(#18\)$', replace = "Add license files ([LukeMathWalker/bunyan#18](https://github.com/LukeMathWalker/bunyan/pull/18))" },
-    # Link pull requests, e.g. `(#12)` in squash-merge titles.
-    { pattern = '\((\w+\s)?#([0-9]+)\)', replace = "([#${2}](https://github.com/LukeMathWalker/officina/pull/${2}))" },
-]
 commit_parsers = [
     { message = "^breaking", group = "<!-- 0 -->‼️ Breaking changes" },
     { message = "^feat", group = "<!-- 1 -->⛰️ Features" },
