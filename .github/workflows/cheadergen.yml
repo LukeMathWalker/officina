@@ -54,12 +54,12 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
         with:
-          tool: just,dprint,mdbook@0.5.3
+          tool: just,mdbook@0.5.3
       - name: Docs (including private items)
         run: just doc
       - name: UI test fixtures build without warnings
         run: just lint-ui-tests
-      - name: Formatting (dprint)
-        run: dprint check
       - name: User guide
         run: mdbook build docs
+      - name: Docs pin the current release
+        run: bash scripts/check_docs_version.sh

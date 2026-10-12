@@ -107,7 +107,7 @@ Expect differences in these places:
 - **Item ordering** may differ between `cheadergen` and `cbindgen`.
 
 If anything else looks unexpectedly different, open an
-[issue](https://github.com/LukeMathWalker/cheadergen/issues) with the input
+[issue](https://github.com/LukeMathWalker/officina/issues) with the input
 and a diff.
 
 ## 5. Decide bundled vs partitioned

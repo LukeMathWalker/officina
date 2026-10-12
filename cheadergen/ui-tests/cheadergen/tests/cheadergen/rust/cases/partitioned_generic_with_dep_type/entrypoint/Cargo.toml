@@ -7,5 +7,5 @@ edition.workspace = true
 workspace = true
 
 [dependencies]
-partitioned-generic-with-dep-type-wrapper = { path = "../dep" }
 partitioned-generic-with-dep-type-struct = { path = "../dep2" }
+partitioned-generic-with-dep-type-wrapper = { path = "../dep" }

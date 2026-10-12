@@ -1,28 +1,28 @@
 [package]
 name = "rustdoc_resolver"
-description = "Convert rustdoc_types into rustdoc_ir types"
-edition = "2024"
-repository = "https://github.com/LukeMathWalker/rustdoc-reflection"
-homepage = "https://github.com/LukeMathWalker/rustdoc-reflection"
-license = "Apache-2.0"
 version = "0.1.1"
-keywords = ["rustdoc-json", "reflection", "rustdoc"]
 categories = ["development-tools", "parser-implementations"]
+edition = "2024"
+homepage = "https://github.com/LukeMathWalker/officina/tree/main/rustdoc-reflection/rustdoc_resolver"
+keywords = ["rustdoc-json", "reflection", "rustdoc"]
+license = "Apache-2.0"
+repository = "https://github.com/LukeMathWalker/officina"
+description = "Convert rustdoc_types into rustdoc_ir types"
 
 [lints]
 clippy = { large_enum_variant = "allow", result_large_err = "allow" }
 
 [dependencies]
+ahash = { workspace = true }
+anyhow = { workspace = true }
+guppy = { workspace = true }
+once_cell = { workspace = true }
 rustdoc-types = { workspace = true, features = ["rustc-hash", "rkyv_0_8"] }
+rustdoc_ext = { workspace = true }
 rustdoc_ir = { workspace = true }
 rustdoc_processor = { workspace = true }
-rustdoc_ext = { workspace = true }
-guppy = { workspace = true }
-anyhow = { workspace = true }
-ahash = { workspace = true }
-once_cell = { workspace = true }
-tracing = { workspace = true, default-features = true }
 thiserror = { workspace = true }
+tracing = { workspace = true, default-features = true }
 
 [package.metadata.ci]
 platforms = ["linux", "macos", "windows"]

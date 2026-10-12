@@ -1,13 +1,13 @@
 [package]
 name = "rustdoc_ext"
-description = "Extension traits for rustdoc-types"
-edition = "2024"
-repository = "https://github.com/LukeMathWalker/rustdoc-reflection"
-homepage = "https://github.com/LukeMathWalker/rustdoc-reflection"
-license = "Apache-2.0"
 version = "0.1.1"
-keywords = ["rustdoc-json", "reflection", "rustdoc"]
 categories = ["development-tools"]
+edition = "2024"
+homepage = "https://github.com/LukeMathWalker/officina/tree/main/rustdoc-reflection/rustdoc_ext"
+keywords = ["rustdoc-json", "reflection", "rustdoc"]
+license = "Apache-2.0"
+repository = "https://github.com/LukeMathWalker/officina"
+description = "Extension traits for rustdoc-types"
 
 [dependencies]
 guppy = { workspace = true }

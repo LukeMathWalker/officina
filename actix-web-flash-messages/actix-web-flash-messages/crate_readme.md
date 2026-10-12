@@ -1,6 +1,6 @@
 # Flash Messages for `actix-web`
 
-Web applications sometimes need to show a **one-time notification** to the user - e.g. an error message after having failed to login.  
+Web applications sometimes need to show a **one-time notification** to the user - e.g. an error message after having failed to login.\
 These notifications are commonly called **flash messages**.
 
 `actix-web-flash-messages` provides a framework to work with flash messages in `actix-web`, closely modeled after [Django's message framework](https://docs.djangoproject.com/en/3.2/ref/contrib/messages/#module-django.contrib.messages).
@@ -47,7 +47,7 @@ actix-web = "4"
 actix-web-flash-messages = "0.4"
 ```
 
-By default, `actix-web-flash-messages` does not provide any storage backend to receive and send flash messages.  
+By default, `actix-web-flash-messages` does not provide any storage backend to receive and send flash messages.\
 You can enable:
 
 - a cookie-based one, [`storage::CookieMessageStore`], using the `cookies` feature flag. The cookie store uses a signed cookie to store and retrieve messages;
@@ -72,9 +72,9 @@ You can provide a different message store by implementing the [`storage::FlashMe
 
 You can find examples of application using `actix-web-flash-messages` on GitHub:
 
-- [cookies](https://github.com/LukeMathWalker/actix-web-flash-messages/tree/main/examples/cookies);
-- [cookie-based sessions](https://github.com/LukeMathWalker/actix-web-flash-messages/tree/main/examples/session-cookie);
-- [Redis-based sessions](https://github.com/LukeMathWalker/actix-web-flash-messages/tree/main/examples/session-redis).
+- [cookies](https://github.com/LukeMathWalker/officina/tree/main/actix-web-flash-messages/examples/cookies);
+- [cookie-based sessions](https://github.com/LukeMathWalker/officina/tree/main/actix-web-flash-messages/examples/session-cookie);
+- [Redis-based sessions](https://github.com/LukeMathWalker/officina/tree/main/actix-web-flash-messages/examples/session-redis).
 
 ## The Structure of a Flash Message
 
@@ -82,15 +82,15 @@ You can find examples of application using `actix-web-flash-messages` on GitHub:
 
 The message level can be used for filtering and rendering - for example:
 
-- Only show flash messages at `info` level or above in a production environment, while retaining `debug` level messages for local development; 
+- Only show flash messages at `info` level or above in a production environment, while retaining `debug` level messages for local development;
 - Use different colours, in the UI, to display messages (e.g. red for errors, orange for warnings, etc.);
 
-You can build a [`FlashMessage`] via [`FlashMessage::new`] by specifying its content and [`Level`].  
+You can build a [`FlashMessage`] via [`FlashMessage::new`] by specifying its content and [`Level`].\
 You can also use the shorter level-based constructors - e.g. [`FlashMessage::info`].
 
 ## Enabling Flash Messages
 
-To start sending and receiving flash messages you need to register [`FlashMessagesFramework`] as a middleware on your `actix_web`'s `App`:  
+To start sending and receiving flash messages you need to register [`FlashMessagesFramework`] as a middleware on your `actix_web`'s `App`:
 
 ```rust
 use actix_web_flash_messages::{FlashMessagesFramework, storage::CookieMessageStore};
@@ -144,12 +144,12 @@ async fn show(_messages: IncomingFlashMessages) -> impl Responder {
 
 ## Framework Configuration
 
-There are a few knobs that you can tweak when it comes to [`FlashMessagesFramework`].  
+There are a few knobs that you can tweak when it comes to [`FlashMessagesFramework`].\
 Use [`FlashMessagesFramework::builder`] to get access to its fluent configuration API, built around [`FlashMessagesFrameworkBuilder`].
 
 ### Minimum Level
 
-By default, [`FlashMessagesFramework`] will only dispatch messages at `info`-level or above, discarding `debug`-level messages.  
+By default, [`FlashMessagesFramework`] will only dispatch messages at `info`-level or above, discarding `debug`-level messages.\
 You can change this setting using [`FlashMessagesFrameworkBuilder::minimum_level`].
 
 ```rust

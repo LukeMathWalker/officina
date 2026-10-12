@@ -26,8 +26,8 @@ use actix_web::HttpRequest;
 ///
 /// You can find examples of application using [`SessionMessageStore`] on GitHub:
 /// using both
-/// [cookie-based sessions](https://github.com/LukeMathWalker/actix-web-flash-messages/tree/main/examples/session-cookie) and
-/// [Redis-based sessions](https://github.com/LukeMathWalker/actix-web-flash-messages/tree/main/examples/session-redis).
+/// [cookie-based sessions](https://github.com/LukeMathWalker/officina/tree/main/actix-web-flash-messages/examples/session-cookie) and
+/// [Redis-based sessions](https://github.com/LukeMathWalker/officina/tree/main/actix-web-flash-messages/examples/session-redis).
 ///
 /// [`FlashMessagesFramework`]: crate::FlashMessagesFramework
 #[derive(Clone)]

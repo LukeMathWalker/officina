@@ -15,7 +15,7 @@ The pipeline:
 4. **Query** — look up items by path, resolve cross-crate references, and
    retrieve canonical import paths.
 
-Part of the [rustdoc-reflection](https://github.com/LukeMathWalker/rustdoc-reflection)
+Part of the [rustdoc-reflection](https://github.com/LukeMathWalker/officina/tree/main/rustdoc-reflection)
 toolkit.
 
 ## License

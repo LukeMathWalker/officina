@@ -1,13 +1,13 @@
 [package]
 name = "rustdoc_processor"
-description = "Compute, cache, index, and query rustdoc JSON documentation"
-edition = "2024"
-repository = "https://github.com/LukeMathWalker/rustdoc-reflection"
-homepage = "https://github.com/LukeMathWalker/rustdoc-reflection"
-license = "Apache-2.0"
 version = "0.1.1"
-keywords = ["rustdoc-json", "reflection", "rustdoc"]
 categories = ["development-tools", "caching"]
+edition = "2024"
+homepage = "https://github.com/LukeMathWalker/officina/tree/main/rustdoc-reflection/rustdoc_processor"
+keywords = ["rustdoc-json", "reflection", "rustdoc"]
+license = "Apache-2.0"
+repository = "https://github.com/LukeMathWalker/officina"
+description = "Compute, cache, index, and query rustdoc JSON documentation"
 
 [lints]
 clippy = { large_enum_variant = "allow", result_large_err = "allow" }
@@ -19,13 +19,13 @@ rustdoc_ext = { workspace = true }
 rustdoc_ir = { workspace = true }
 
 # Package graph
-guppy = { workspace = true }
 camino = { workspace = true }
+guppy = { workspace = true }
 
 # SQLite cache
-rusqlite = { workspace = true, features = ["bundled"] }
-r2d2_sqlite = { workspace = true }
 r2d2 = { workspace = true }
+r2d2_sqlite = { workspace = true }
+rusqlite = { workspace = true, features = ["bundled"] }
 
 # Serialization
 bincode = { workspace = true, features = ["serde"] }
@@ -35,27 +35,27 @@ serde_json = { workspace = true, features = ["unbounded_depth"] }
 serde_stacker = { workspace = true }
 
 # Compute
-semver = { workspace = true }
 indexmap = { workspace = true }
 rayon = { workspace = true }
+semver = { workspace = true }
 
 # In-memory frozen collections
 elsa = { workspace = true }
 
 # Utilities
+ahash = { workspace = true }
 anyhow = { workspace = true }
 fs-err = { workspace = true }
-xxhash-rust = { workspace = true, features = ["xxh64"] }
 globwalk = { workspace = true }
+itertools = { workspace = true }
+num_cpus = { workspace = true }
+once_cell = { workspace = true }
+rustc-hash = { workspace = true }
+thiserror = { workspace = true }
+toml = { workspace = true }
 tracing = { workspace = true, default-features = true }
 tracing_log_error = { workspace = true }
-num_cpus = { workspace = true }
-itertools = { workspace = true }
-thiserror = { workspace = true }
-rustc-hash = { workspace = true }
-ahash = { workspace = true }
-toml = { workspace = true }
-once_cell = { workspace = true }
+xxhash-rust = { workspace = true, features = ["xxh64"] }
 
 [package.metadata.ci]
 platforms = ["linux", "macos", "windows"]

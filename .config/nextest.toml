@@ -13,16 +13,16 @@ command = ["cheadergen/ui-tests/cheadergen/tests/setup-metadata.sh"]
 command = ["cheadergen/cheadergen_cli/tests/setup.sh"]
 
 [[profile.default.scripts]]
-filter = 'package(=cbindgen-ui-tests) & (test(~::generate::) | test(~::symbol::))'
-setup = 'compute-cbindgen-metadata'
+filter = "package(=cbindgen-ui-tests) & (test(~::generate::) | test(~::symbol::))"
+setup = "compute-cbindgen-metadata"
 
 [[profile.default.scripts]]
-filter = 'package(=cheadergen-ui-tests) & (test(~::generate::) | test(~::symbol::))'
-setup = 'compute-cheadergen-metadata'
+filter = "package(=cheadergen-ui-tests) & (test(~::generate::) | test(~::symbol::))"
+setup = "compute-cheadergen-metadata"
 
 [[profile.default.scripts]]
-filter = 'binary(~cli_errors)'
-setup = 'build-cheadergen'
+filter = "binary(~cli_errors)"
+setup = "build-cheadergen"
 
 [profile.machine.junit]
 path = "junit.xml"

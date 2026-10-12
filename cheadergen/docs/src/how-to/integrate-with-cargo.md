@@ -48,7 +48,7 @@ Either way: `cheadergen` finishes (and releases the target-dir lock) before
 ## Idempotent output: mtimes won't churn
 
 `cheadergen` calls
-[`write_header_if_changed`](https://github.com/LukeMathWalker/cheadergen/blob/main/cheadergen_cli/src/cli/generate.rs)
+[`write_header_if_changed`](https://github.com/LukeMathWalker/officina/blob/main/cheadergen/cheadergen_cli/src/cli/generate.rs)
 for every output file: if the new content is byte-identical to what's already
 on disk, the file is left alone and its mtime is preserved.
 

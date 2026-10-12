@@ -50,6 +50,21 @@ jobs:
           fi
           cargo ci select "${args[@]}" --github-output "$GITHUB_OUTPUT"
 
+  # Markdown, TOML, JSON and YAML everywhere, and cheadergen's Rust (see `dprint.json`).
+  # The workspace's Rust code is checked by `cargo fmt`, in each package's job.
+  format:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install
+      - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: dprint
+      - run: dprint check
+
   check:
     name: ${{ matrix.name }}
     needs: plan
@@ -92,7 +107,7 @@ jobs:
   ci-ok:
     name: CI result
     if: always()
-    needs: [plan, check, cheadergen]
+    needs: [plan, format, check, cheadergen]
     runs-on: ubuntu-latest
     steps:
       - env:

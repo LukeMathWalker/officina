@@ -20,5 +20,5 @@ ctypedef uint64_t Option_Foo
 
 [export]
 exclude = [
-  "Option_Foo",
+    "Option_Foo",
 ]

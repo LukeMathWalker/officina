@@ -16,7 +16,7 @@ use percent_encoding::{percent_encode, AsciiSet};
 /// Use [`CookieMessageStore::builder`] to build an instance of [`CookieMessageStore`]!
 ///
 /// You can find an example of an application using [`CookieMessageStore`]
-/// [on GitHub](https://github.com/LukeMathWalker/actix-web-flash-messages/tree/main/examples/cookies).
+/// [on GitHub](https://github.com/LukeMathWalker/officina/tree/main/actix-web-flash-messages/examples/cookies).
 pub struct CookieMessageStore {
     cookie_name: String,
     signing_key: Key,

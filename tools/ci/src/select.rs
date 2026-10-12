@@ -48,6 +48,8 @@ pub const RUN_EVERYTHING: &[&str] = &[
 pub const RUN_NOTHING: &[&str] = &[
     ".gitignore",
     ".github/pull_request_template.md",
+    // Checked by the formatting job, which always runs.
+    "dprint.json",
     "LICENSE-APACHE",
     "LICENSE-MIT",
     "README.md",
