@@ -25,6 +25,7 @@ jobs:
     outputs:
       matrix: ${{ steps.select.outputs.matrix }}
       projects: ${{ steps.select.outputs.projects }}
+      has-release: ${{ steps.release.outputs.has-release }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -52,7 +53,8 @@ jobs:
       # Catches release problems (e.g. a crate of a group bumped alone) before they're merged,
       # and shows what merging a release PR will release.
       - name: Release plan
-        run: cargo ci release plan
+        id: release
+        run: cargo ci release plan --github-output "$GITHUB_OUTPUT"
 
   # Markdown, TOML, JSON and YAML everywhere, and cheadergen's Rust (see `dprint.json`).
   # The workspace's Rust code is checked by `cargo fmt`, in each package's job.
@@ -100,6 +102,30 @@ jobs:
         # `PACKAGES` is a space-separated list of package names.
         run: cargo ci check --platform "$PLATFORM" $PACKAGES
 
+  # On PRs with something to release (i.e. release PRs): everything the release workflow does
+  # before publishing, except building binaries, so that release failures show up before merging.
+  release-rehearsal:
+    name: Release rehearsal
+    needs: plan
+    if: github.event_name == 'pull_request' && needs.plan.outputs.has-release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: release-rehearsal
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: cargo-dist@0.32.0
+      - name: Plan the binaries' builds
+        run: cargo ci release plan --github-output "$RUNNER_TEMP/release-plan" --dist
+      - name: Package the crates (verified) and extract the release notes
+        run: cargo ci release package --out target/release-artifacts
+
   # Projects needing more than the generic checks have their own workflow,
   # named after the project.
   cheadergen:
@@ -111,7 +137,7 @@ jobs:
   ci-ok:
     name: CI result
     if: always()
-    needs: [plan, format, check, cheadergen]
+    needs: [plan, format, check, release-rehearsal, cheadergen]
     runs-on: ubuntu-latest
     steps:
       - env:
