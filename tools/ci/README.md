@@ -44,10 +44,9 @@ tests = true
 # (`--all-features`, used for docs), and `no-default`.
 feature-sets = [
     { name = "default", docs = true },
-    { name = "unstable", args = [
-        "--features",
-        "unstable",
-    ], rustflags = "--cfg unstable" },
+    { name = "unstable", args = ["--features=unstable"] },
+    # `rustflags` apply to every command of the set.
+    { name = "cfg", rustflags = "--cfg unstable" },
 ]
 # Extra commands, run with `bash` in the package directory, on Linux only.
 commands = [{ name = "README is up to date", run = "cargo rdme --check" }]
