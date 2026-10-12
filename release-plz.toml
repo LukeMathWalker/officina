@@ -72,7 +72,7 @@ commit_parsers = [
 ]
 # Changelogs follow the repository's Markdown style (`dprint.json`), which CI checks.
 postprocessors = [
-  { pattern = '.*', replace_command = "dprint fmt --stdin md" },
+    { pattern = ".*", replace_command = "dprint fmt --stdin md" },
 ]
 
 # cheadergen's crates are versioned together, with one changelog.

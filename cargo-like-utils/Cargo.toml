@@ -2,22 +2,23 @@
 name = "cargo-like-utils"
 version = "0.2.1"
 edition = "2021"
-license = "MIT OR Apache-2.0"
-description = "A colletion of utils to build CLIs with an output style and a behaviour similar to `cargo`"
-repository = "https://github.com/LukeMathWalker/officina"
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/cargo-like-utils"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/LukeMathWalker/officina"
+description = "A colletion of utils to build CLIs with an output style and a behaviour similar to `cargo`"
 
 [dependencies]
-libc = "0.2.169"
 anstream = "0.6.18"
 anstyle = "1.0.10"
 anyhow = "1"
-url = "2.5.4"
-supports-hyperlinks = "3"
+fs-err = "3.1.0"
+libc = "0.2.169"
+remove_dir_all = "1.0.0"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.138"
-remove_dir_all = "1.0.0"
+supports-hyperlinks = "3"
 tracing = { version = "0.1.41", features = [] }
+url = "2.5.4"
 windows-sys = { version = "0.59.0", features = [
     "Win32_Foundation",
     "Win32_Security",
@@ -27,7 +28,6 @@ windows-sys = { version = "0.59.0", features = [
     "Win32_System_JobObjects",
     "Win32_System_Threading",
 ] }
-fs-err = "3.1.0"
 
 [package.metadata.ci]
 platforms = ["linux", "macos", "windows"]

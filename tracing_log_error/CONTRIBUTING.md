@@ -1,6 +1,6 @@
-# Debugging 
+# Debugging
 
-Developing complex `macro_rules!`, such as `log_error!`, can be challenging. 
+Developing complex `macro_rules!`, such as `log_error!`, can be challenging.
 To help with debugging, consider using these tools:
 
 - The `-Z macro-backtrace` and `-Z trace-macros` unstable compiler flags.
@@ -15,5 +15,5 @@ To help with debugging, consider using these tools:
   ```
   The above is particularly useful if you're trying to understand a macro that's expanding
   to code that doesn't compile or if it fails due to exceeding the compiler recursion limit.
-- A [railroad visualization](https://lukaslueg.github.io/macro_railroad_wasm_demo/) of the macro 
+- A [railroad visualization](https://lukaslueg.github.io/macro_railroad_wasm_demo/) of the macro
   matching rules.

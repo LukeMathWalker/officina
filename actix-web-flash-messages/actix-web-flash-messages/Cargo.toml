@@ -1,16 +1,16 @@
 [package]
 name = "actix-web-flash-messages"
 version = "0.5.0"
-edition = "2018"
 authors = ["Luca Palmieri <rust@lpalmieri.com>"]
-license = "MIT/Apache-2.0"
-repository = "https://github.com/LukeMathWalker/officina"
-homepage = "https://github.com/LukeMathWalker/officina/tree/main/actix-web-flash-messages/actix-web-flash-messages"
-documentation = "https://docs.rs/actix-web-flash-messages/"
-description = "Flash messages for actix-web applications."
-readme = "../README.md"
-keywords = ["flash", "messages", "actix-web", "notifications"]
 categories = ["asynchronous"]
+documentation = "https://docs.rs/actix-web-flash-messages/"
+edition = "2018"
+homepage = "https://github.com/LukeMathWalker/officina/tree/main/actix-web-flash-messages/actix-web-flash-messages"
+keywords = ["flash", "messages", "actix-web", "notifications"]
+license = "MIT/Apache-2.0"
+readme = "../README.md"
+repository = "https://github.com/LukeMathWalker/officina"
+description = "Flash messages for actix-web applications."
 
 [package.metadata.docs.rs]
 all-features = true
@@ -31,8 +31,8 @@ time = "0.3"
 tokio = { version = "1.12.0", default-features = false, features = ["rt"] }
 
 [dev-dependencies]
+actix-rt = "2.2.0"
+actix-session = { version = "0.10", features = ["cookie-session"] }
+actix-test = "0.1.5"
 # The doc examples use `#[actix_web::main]` and routing macros.
 actix-web = { version = "4", default-features = false, features = ["macros"] }
-actix-rt = "2.2.0"
-actix-test = "0.1.5"
-actix-session = { version = "0.10", features = ["cookie-session"] }

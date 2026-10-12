@@ -4,12 +4,12 @@ Building blocks for analyzing Rust crates via [`rustdoc`'s JSON output](https://
 
 ## Crates
 
-| Crate | Description |
-|-------|-------------|
-| [`rustdoc_ext`](rustdoc_ext) | Extension traits for `rustdoc-types`. |
-| [`rustdoc_ir`](rustdoc_ir) | An Intermediate Representation (IR) for Rust types and functions. |
-| [`rustdoc_processor`](rustdoc_processor) | Compute, cache, index, and query `rustdoc` JSON documentation. |
-| [`rustdoc_resolver`](rustdoc_resolver) | Convert `rustdoc_types` items into `rustdoc_ir` types. |
+| Crate                                    | Description                                                       |
+| ---------------------------------------- | ----------------------------------------------------------------- |
+| [`rustdoc_ext`](rustdoc_ext)             | Extension traits for `rustdoc-types`.                             |
+| [`rustdoc_ir`](rustdoc_ir)               | An Intermediate Representation (IR) for Rust types and functions. |
+| [`rustdoc_processor`](rustdoc_processor) | Compute, cache, index, and query `rustdoc` JSON documentation.    |
+| [`rustdoc_resolver`](rustdoc_resolver)   | Convert `rustdoc_types` items into `rustdoc_ir` types.            |
 
 ## Origin
 
@@ -18,7 +18,7 @@ dependency-injection analysis.
 
 ## Testing Strategy
 
-The crates in this repository are currently tested 
+The crates in this repository are currently tested
 transitively via [Pavex's][pavex] and [cheadergen's][cheadergen] test suites.
 A standalone test suite will follow sooner or later.
 

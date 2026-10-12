@@ -14,5 +14,5 @@ using MaybeUninit = T;
 """
 [export]
 exclude = [
-  "MaybeUninit",
+    "MaybeUninit",
 ]

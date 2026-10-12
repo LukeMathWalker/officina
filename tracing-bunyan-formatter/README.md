@@ -1,8 +1,8 @@
 <h1 align="center">tracing-bunyan-formatter</h1>
 <div align="center">
- <strong>
-   Bunyan formatting for tokio-rs/tracing.
- </strong>
+  <strong>
+    Bunyan formatting for tokio-rs/tracing.
+  </strong>
 </div>
 
 <br />
@@ -10,28 +10,38 @@
 <div align="center">
   <!-- Crates version -->
   <a href="https://crates.io/crates/tracing-bunyan-formatter">
-    <img src="https://img.shields.io/crates/v/tracing-bunyan-formatter.svg?style=flat-square"
-    alt="Crates.io version" />
+    <img
+      src="https://img.shields.io/crates/v/tracing-bunyan-formatter.svg?style=flat-square"
+      alt="Crates.io version"
+    />
   </a>
   <!-- Downloads -->
   <a href="https://crates.io/crates/tracing-bunyan-formatter">
-    <img src="https://img.shields.io/crates/d/tracing-bunyan-formatter.svg?style=flat-square"
-      alt="Download" />
+    <img
+      src="https://img.shields.io/crates/d/tracing-bunyan-formatter.svg?style=flat-square"
+      alt="Download"
+    />
   </a>
   <!-- docs.rs docs -->
   <a href="https://docs.rs/tracing-bunyan-formatter">
-    <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
-      alt="docs.rs docs" />
+    <img
+      src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
+      alt="docs.rs docs"
+    />
   </a>
   <!-- CI -->
   <a href="https://github.com/LukeMathWalker/officina/actions/workflows/ci.yml">
-    <img src="https://github.com/LukeMathWalker/officina/actions/workflows/ci.yml/badge.svg" alt="CI status" />
+    <img
+      src="https://github.com/LukeMathWalker/officina/actions/workflows/ci.yml/badge.svg"
+      alt="CI status"
+    />
   </a>
 </div>
-<br/>
+<br />
 
 `tracing-bunyan-formatter` provides two [`Layer`]s implementation to be used on top of
 a [`tracing`] [`Subscriber`]:
+
 - [`JsonStorageLayer`], to attach contextual information to spans for ease of consumption by
   downstream [`Layer`]s, via [`JsonStorage`] and [`Span`]'s [`extensions`](https://docs.rs/tracing-subscriber/0.2.5/tracing_subscriber/registry/struct.ExtensionsMut.html);
 - [`BunyanFormattingLayer`], which emits a [bunyan](https://github.com/trentm/node-bunyan)-compatible formatted record upon entering a span,
@@ -77,20 +87,20 @@ fn main() {
 ## Console output
 
 <div>
-<img src="https://raw.githubusercontent.com/LukeMathWalker/officina/main/tracing-bunyan-formatter/images/ConsoleOutput.png" />
+  <img src="https://raw.githubusercontent.com/LukeMathWalker/officina/main/tracing-bunyan-formatter/images/ConsoleOutput.png" />
 </div>
-<hr/>
+<hr />
 
 If you pipe the output in the [`bunyan`](https://github.com/trentm/node-bunyan) CLI:
+
 <div>
-<img src="https://raw.githubusercontent.com/LukeMathWalker/officina/main/tracing-bunyan-formatter/images/ConsoleBunyanOutput.png" />
+  <img src="https://raw.githubusercontent.com/LukeMathWalker/officina/main/tracing-bunyan-formatter/images/ConsoleBunyanOutput.png" />
 </div>
-<hr/>
+<hr />
 
 As a pure-Rust alternative check out the [`bunyan` crate](https://crates.io/crates/bunyan).
 It includes a CLI binary with similar functionality to the original `bunyan` CLI written in
 JavaScript.
-
 
 ## Implementation strategy
 
@@ -126,25 +136,25 @@ To use `tracing` and `tracing-bunyan-formatter` with `valuable`, you must set th
 2. Add the `--cfg tracing_unstable` arguments to your rustc
    flags (see [`tracing`'s documentation on this][tracing_unstable]).
    This can be done in a few ways:
-    1. Adding the arguments to your binary package's
-       `.cargo/config.toml` under `build.rustflags`. See the
-       [`cargo` config reference documentation][cargo_build_rustflags]).
+   1. Adding the arguments to your binary package's
+      `.cargo/config.toml` under `build.rustflags`. See the
+      [`cargo` config reference documentation][cargo_build_rustflags]).
 
-       Example:
+      Example:
 
-       ```toml
-       [build]
-       rustflags = "--cfg tracing_unstable"
-       ```
+      ```toml
+      [build]
+      rustflags = "--cfg tracing_unstable"
+      ```
 
-    2. Adding the arguments to the `RUSTFLAGS` environment variable when you
-       run `cargo`. See the [`cargo` environment variable
-       docs][cargo_env_vars]).
+   2. Adding the arguments to the `RUSTFLAGS` environment variable when you
+      run `cargo`. See the [`cargo` environment variable
+      docs][cargo_env_vars]).
 
-       Example:
-       ```sh
-       RUSTFLAGS="--cfg tracing_unstable" cargo build
-       ```
+      Example:
+      ```sh
+      RUSTFLAGS="--cfg tracing_unstable" cargo build
+      ```
 
 3. Enable the feature flag `valuable` for the `tracing-bunyan-formatter` dependency.
 4. Add dependency `valuable`.
