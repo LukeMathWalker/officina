@@ -70,9 +70,9 @@ commit_parsers = [
     # Every release gets a section, even when it only has maintenance changes.
     { message = "^.*", group = "<!-- 9 -->⚙️ Other" },
 ]
-# Changelogs follow the Markdown style cheadergen's CI checks with dprint.
+# Changelogs follow the repository's Markdown style (`dprint.json`), which CI checks.
 postprocessors = [
-  { pattern = '.*', replace_command = "dprint fmt --config cheadergen/dprint.json --stdin md" },
+  { pattern = '.*', replace_command = "dprint fmt --stdin md" },
 ]
 
 # cheadergen's crates are versioned together, with one changelog.
