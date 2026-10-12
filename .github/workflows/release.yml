@@ -353,3 +353,17 @@ jobs:
         run: |
           chmod +x "$OFFICINA_CI"
           "$OFFICINA_CI" release tag --manifest "$RELEASE/manifest.json" $DRY_RUN
+
+  # The release PR isn't refreshed while a release is pending (see `release-pr.yml`).
+  refresh-release-pr:
+    name: Refresh the release PR
+    needs: tag
+    if: ${{ !inputs.dry-run }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run release-pr.yml --ref main
