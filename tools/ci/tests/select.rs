@@ -140,7 +140,11 @@ fn repository_docs_select_nothing() {
     let selection = select(
         Some(&ws),
         &ws,
-        &paths(&["README.md", ".github/pull_request_template.md"]),
+        &paths(&[
+            "README.md",
+            ".github/pull_request_template.md",
+            "release-plz.toml",
+        ]),
         None,
     );
     assert!(selection.packages.is_empty());

@@ -49,6 +49,10 @@ jobs:
             args=(--base HEAD --everything)
           fi
           cargo ci select "${args[@]}" --github-output "$GITHUB_OUTPUT"
+      # Catches release problems (e.g. a crate of a group bumped alone) before they're merged,
+      # and shows what merging a release PR will release.
+      - name: Release plan
+        run: cargo ci release plan
 
   # Markdown, TOML, JSON and YAML everywhere, and cheadergen's Rust (see `dprint.json`).
   # The workspace's Rust code is checked by `cargo fmt`, in each package's job.

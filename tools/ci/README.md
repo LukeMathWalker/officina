@@ -78,6 +78,19 @@ tag, and isn't on crates.io (or is, with our checksum: a previous run published
 it but didn't finish). Every step is idempotent: rerunning an interrupted
 release finishes it. `stage`, `publish` and `tag` take `--dry-run`.
 
+In CI:
+
+- `.github/workflows/release-pr.yml` opens or updates the release PR on every
+  push to `main` (release-plz, with a GitHub App's token so that CI runs on it:
+  the `RELEASE_PLZ_APP_CLIENT_ID` variable and `RELEASE_PLZ_APP_PRIVATE_KEY` secret,
+  in the `release-pr` environment, restricted to `main`).
+- `.github/workflows/release.yml` runs after CI passes on `main`: plan, package
+  and build binaries (read-only), stage, publish (trusted publishing, in the
+  `release` environment), then tag. Run it manually for a dry run, on any branch
+  (e.g. a release PR's), or for real on `main` to finish an interrupted release.
+- CI runs `cargo ci release plan` on every PR, so release problems show up
+  before merging.
+
 By default, each crate gets its own GitHub release. Crates versioned together
 can share one:
 

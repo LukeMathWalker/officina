@@ -1,0 +1,326 @@
+# Releases the crates whose version isn't released yet (see `tools/ci/README.md`).
+#
+# Runs after CI passes on main. Everything is packaged and built first; publishing
+# only uploads what was packaged, and tags come last: a tag marks a completed release.
+# Every step is idempotent: rerun the workflow to finish an interrupted release.
+name: Release
+
+# `workflow_run` is safe here: only CI runs of pushes to main that succeeded, checked out at
+# that commit, with no artifacts from the triggering run.
+on: # zizmor: ignore[dangerous-triggers]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Run every check without staging, publishing or tagging anything.
+        type: boolean
+        default: true
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run && '--dry-run' || '' }}
+
+jobs:
+  plan:
+    name: Plan
+    # Only commits that passed CI after being pushed to main, or manual runs.
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      commit: ${{ steps.commit.outputs.commit }}
+      has-release: ${{ steps.plan.outputs.has-release }}
+      dist-matrix: ${{ steps.plan.outputs.dist-matrix }}
+      dist-releases: ${{ steps.plan.outputs.dist-releases }}
+    steps:
+      - name: Choose the commit
+        id: commit
+        env:
+          COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && -z "$DRY_RUN" && "$REF" != "refs/heads/main" ]]; then
+            echo "::error::Only dry runs can release another branch than main."
+            exit 1
+          fi
+          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.commit.outputs.commit }}
+          persist-credentials: false
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: cargo-dist@0.32.0
+      # Built once: the jobs holding credentials run it without compiling anything.
+      - run: cargo build --locked --release -p officina-ci
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: officina-ci
+          path: target/release/officina-ci
+      - name: Plan
+        id: plan
+        run: target/release/officina-ci release plan --github-output "$GITHUB_OUTPUT"
+
+  package:
+    name: Package crates
+    needs: plan
+    if: needs.plan.outputs.has-release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.commit }}
+          persist-credentials: false
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: release-package
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: officina-ci
+          path: ${{ runner.temp }}/bin
+      - name: Package
+        env:
+          OFFICINA_CI: ${{ runner.temp }}/bin/officina-ci
+        run: |
+          chmod +x "$OFFICINA_CI"
+          "$OFFICINA_CI" release package --out target/release-artifacts
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: target/release-artifacts
+
+  binaries:
+    name: Binaries (${{ matrix.crate }}, ${{ join(matrix.targets, ', ') }})
+    needs: plan
+    if: needs.plan.outputs.has-release == 'true' && fromJSON(needs.plan.outputs.dist-matrix).include[0] != null
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.dist-matrix) }}
+    runs-on: ${{ matrix.runner }}
+    # Linux binaries are built in old-glibc (manylinux) and musl containers, for compatibility.
+    # The images are pinned by digest in `dist-workspace.toml`.
+    container: ${{ matrix.container && matrix.container.image || null }} # zizmor: ignore[unpinned-images]
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      TAG: ${{ matrix.tag }}
+      DIST_ARGS: ${{ matrix.dist_args }}
+      BUILD_MANIFEST_NAME: target/distrib/${{ join(matrix.targets, '-') }}-dist-manifest.json
+    steps:
+      - run: git config --global core.longpaths true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.commit }}
+          persist-credentials: false
+      - name: Install rustup (containers)
+        if: matrix.container
+        # Adds rustup's own directory to the path.
+        run: | # zizmor: ignore[github-env]
+          if ! command -v rustup > /dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+      - run: rustup toolchain install
+      - name: Install dist
+        if: matrix.install_dist.shell != 'pwsh'
+        env:
+          INSTALL_DIST: ${{ matrix.install_dist.run }}
+        run: eval "$INSTALL_DIST"
+      - name: Install dist (Windows)
+        if: matrix.install_dist.shell == 'pwsh'
+        shell: pwsh
+        env:
+          INSTALL_DIST: ${{ matrix.install_dist.run }}
+        run: Invoke-Expression $env:INSTALL_DIST
+      - name: Install system dependencies
+        if: matrix.packages_install
+        env:
+          PACKAGES_INSTALL: ${{ matrix.packages_install }}
+        run: eval "$PACKAGES_INSTALL"
+      - name: Build
+        id: build
+        run: |
+          dist build --tag="$TAG" --print=linkage --output-format=json $DIST_ARGS > dist-manifest.json
+          {
+            echo "paths<<EOF"
+            dist print-upload-files-from-manifest --manifest dist-manifest.json
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          mkdir -p target/distrib
+          cp dist-manifest.json "$BUILD_MANIFEST_NAME"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-${{ matrix.crate }}-${{ join(matrix.targets, '_') }}
+          path: |
+            ${{ steps.build.outputs.paths }}
+            ${{ env.BUILD_MANIFEST_NAME }}
+
+  installers:
+    name: Installers (${{ matrix.crate }})
+    needs: [plan, binaries]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.dist-releases) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ matrix.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.commit }}
+          persist-credentials: false
+      - run: rustup toolchain install
+      - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: cargo-dist@0.32.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: dist-${{ matrix.crate }}-*
+          path: target/distrib/
+          merge-multiple: true
+      - name: Build installers and checksums
+        run: |
+          dist build --tag="$TAG" --output-format=json --artifacts=global > dist-manifest.json
+          # The release's assets: the binaries' archives and checksums, plus the installers.
+          mkdir -p assets
+          find target/distrib -maxdepth 1 -type f ! -name '*dist-manifest.json' -exec cp {} assets/ \;
+          jq -r '.upload_files[]' dist-manifest.json | xargs -I{} cp {} assets/
+          ls -l assets
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: binaries-${{ matrix.crate }}
+          path: assets
+
+  stage:
+    name: Stage GitHub releases
+    needs: [plan, package, binaries, installers]
+    # Binary jobs are skipped when no released crate ships binaries.
+    if: >-
+      !cancelled() && needs.package.result == 'success' &&
+      contains(fromJSON('["success", "skipped"]'), needs.binaries.result) &&
+      contains(fromJSON('["success", "skipped"]'), needs.installers.result)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: officina-ci
+          path: ${{ runner.temp }}/bin
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: binaries-*
+          path: ${{ runner.temp }}/assets
+      - name: Stage
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          OFFICINA_CI: ${{ runner.temp }}/bin/officina-ci
+          RELEASE: ${{ runner.temp }}/release
+          ASSETS: ${{ runner.temp }}/assets
+        run: |
+          chmod +x "$OFFICINA_CI"
+          # `binaries-<crate>` artifacts hold the assets of `<crate>`'s release.
+          mkdir -p "$ASSETS"
+          for dir in "$ASSETS"/binaries-*; do
+            [[ -d "$dir" ]] && mv "$dir" "$ASSETS/${dir##*/binaries-}"
+          done
+          "$OFFICINA_CI" release stage --manifest "$RELEASE/manifest.json" --assets "$ASSETS" $DRY_RUN
+
+  publish:
+    name: Publish to crates.io
+    needs: [plan, stage]
+    runs-on: ubuntu-latest
+    # Trusted publishing: crates.io only accepts this workflow, in this environment.
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run && 'release-dry-run' || 'release' }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.commit }}
+          persist-credentials: false
+      - run: rustup toolchain install
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: officina-ci
+          path: ${{ runner.temp }}/bin
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+      - name: Authenticate with crates.io
+        id: auth
+        if: env.DRY_RUN == ''
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+      # Repackages without building, and only uploads if checksums match the manifest.
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+          OFFICINA_CI: ${{ runner.temp }}/bin/officina-ci
+          RELEASE: ${{ runner.temp }}/release
+        run: |
+          chmod +x "$OFFICINA_CI"
+          "$OFFICINA_CI" release publish --manifest "$RELEASE/manifest.json" $DRY_RUN
+
+  tag:
+    name: Tag and publish GitHub releases
+    needs: [plan, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: officina-ci
+          path: ${{ runner.temp }}/bin
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+      - name: Tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          OFFICINA_CI: ${{ runner.temp }}/bin/officina-ci
+          RELEASE: ${{ runner.temp }}/release
+        run: |
+          chmod +x "$OFFICINA_CI"
+          "$OFFICINA_CI" release tag --manifest "$RELEASE/manifest.json" $DRY_RUN
