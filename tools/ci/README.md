@@ -81,8 +81,8 @@ release finishes it. `stage`, `publish` and `tag` take `--dry-run`.
 In CI:
 
 - `.github/workflows/release-pr.yml` opens or updates the release PR on every
-  push to `main` (release-plz, with the `RELEASE_PLZ_TOKEN` secret, so that CI
-  runs on it).
+  push to `main` (release-plz, with a GitHub App's token so that CI runs on it:
+  the `RELEASE_PLZ_APP_CLIENT_ID` variable and `RELEASE_PLZ_APP_PRIVATE_KEY` secret).
 - `.github/workflows/release.yml` runs after CI passes on `main`: plan, package
   and build binaries (read-only), stage, publish (trusted publishing, in the
   `release` environment), then tag. Run it manually for a dry run, on any branch
