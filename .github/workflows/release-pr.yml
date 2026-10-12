@@ -1,6 +1,6 @@
 # Opens or updates the release PR on every push to main: version bumps (with
 # cargo-semver-checks) and changelogs, configured in `release-plz.toml`.
-# Merging it releases the bumped crates (see `release.yml`).
+# Merging it releases the bumped crates (see `release.yml`), which refreshes the release PR when done.
 name: Release PR
 
 on:
@@ -54,12 +54,22 @@ jobs:
           persist-credentials: true
       - if: steps.app.outputs.available == 'true'
         run: rustup toolchain install
+      # While a release is in progress (bumped versions, not tagged yet), release-plz would
+      # misread the state of the crates: `release.yml` refreshes the release PR once it's done.
+      - name: Check for a pending release
+        id: pending
+        if: steps.app.outputs.available == 'true'
+        run: |
+          cargo ci release plan --github-output "$GITHUB_OUTPUT"
+          if grep -q '^has-release=true$' "$GITHUB_OUTPUT"; then
+            echo "::notice::Skipped: a release is pending. The release workflow refreshes the release PR when it's done."
+          fi
       # Formats changelogs (see `release-plz.toml`).
-      - if: steps.app.outputs.available == 'true'
+      - if: steps.app.outputs.available == 'true' && steps.pending.outputs.has-release == 'false'
         uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
         with:
           tool: dprint
-      - if: steps.app.outputs.available == 'true'
+      - if: steps.app.outputs.available == 'true' && steps.pending.outputs.has-release == 'false'
         uses: release-plz/action@f393a7b38aca9d9b4c58447b291dbac963901df6 # v0.5.141
         with:
           command: release-pr
