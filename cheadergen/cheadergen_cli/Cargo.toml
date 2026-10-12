@@ -45,3 +45,9 @@ tests = false
 
 [package.metadata.dist]
 dist = true
+
+# One GitHub release for cheadergen's crates, on this crate's tag: the installers of its binaries download from it.
+[package.metadata.release]
+name = "cheadergen"
+changelog = "../CHANGELOG.md"
+includes = ["cheadergen", "cheadergen_macros"]
