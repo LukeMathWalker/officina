@@ -1,6 +1,6 @@
 [package]
 name = "rustdoc_ext"
-version = "0.1.1"
+version = "0.1.2"
 categories = ["development-tools"]
 edition = "2024"
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/rustdoc-reflection/rustdoc_ext"

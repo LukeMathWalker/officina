@@ -1,6 +1,6 @@
 [package]
 name = "cargo-px"
-version = "0.1.20"
+version = "0.1.21"
 categories = ["development-tools::cargo-plugins", "command-line-utilities"]
 edition = "2021"
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/cargo-px"
