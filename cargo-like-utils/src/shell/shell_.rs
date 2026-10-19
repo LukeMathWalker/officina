@@ -426,7 +426,7 @@ impl ShellOut {
         justified: bool,
     ) -> anyhow::Result<()> {
         let style = style.render();
-        let bold = (anstyle::Style::new() | anstyle::Effects::BOLD).render();
+        let bold = (Style::new() | anstyle::Effects::BOLD).render();
         let reset = anstyle::Reset.render();
 
         let mut buffer = Vec::new();
@@ -582,7 +582,7 @@ mod imp {
                 ptr::null_mut(),
                 OPEN_EXISTING,
                 0,
-                std::ptr::null_mut(),
+                ptr::null_mut(),
             );
             if h == INVALID_HANDLE_VALUE {
                 return TtyWidth::NoTty;

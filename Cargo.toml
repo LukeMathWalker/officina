@@ -47,6 +47,18 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/LukeMathWalker/officina"
 
+# A baseline of lints for the workspace's crates, which opt in with `lints.workspace = true`.
+# cheaderdiff has its own `[lints]` table, which repeats this baseline: keep them in sync.
+[workspace.lints.rust]
+rust_2018_idioms = { level = "warn", priority = -1 }
+unused_lifetimes = "warn"
+unused_qualifications = "warn"
+# `tracing` only enables some unstable features (e.g. `valuable` support) with `--cfg tracing_unstable`.
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tracing_unstable)"] }
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+
 [workspace.dependencies]
 # Crates in this repository
 cheadergen = { path = "cheadergen/cheadergen", version = "0.3.3" }

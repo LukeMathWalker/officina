@@ -7,6 +7,9 @@ license.workspace = true
 repository.workspace = true
 description = "A colletion of utils to build CLIs with an output style and a behaviour similar to `cargo`"
 
+[lints]
+workspace = true
+
 [dependencies]
 anstream = "0.6.18"
 anstyle = "1.0.10"

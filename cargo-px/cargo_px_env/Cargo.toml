@@ -11,3 +11,6 @@ description = "Bindings to retrieve the environment variables set by cargo-px"
 
 [package.metadata.ci]
 platforms = ["linux", "macos", "windows"]
+
+[lints]
+workspace = true

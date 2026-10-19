@@ -85,7 +85,7 @@ impl Key {
     /// ```
     #[inline]
     pub fn from(key: Vec<u8>) -> Key {
-        crate::Key::try_from(key).expect("Invalid key material")
+        Key::try_from(key).expect("Invalid key material")
     }
 
     /// Generates signing/encryption keys from a secure, random source. Keys are
@@ -207,7 +207,7 @@ impl TryFrom<&[u8]> for Key {
     /// assert!(Key::try_from(key).is_err());
     /// ```
     fn try_from(key: &[u8]) -> Result<Self, Self::Error> {
-        crate::Key::try_from(key.to_vec())
+        Key::try_from(key.to_vec())
     }
 }
 

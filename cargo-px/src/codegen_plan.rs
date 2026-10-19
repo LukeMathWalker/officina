@@ -49,8 +49,7 @@ impl<'graph> AugmentedPackageGraph<'graph> {
         // A map from package ID to node ID in the dependency graph.
         let mut pkg_id2node_id = HashMap::new();
         let mut processed_pkg_ids = HashSet::new();
-        let mut dep_graph =
-            petgraph::stable_graph::StableDiGraph::<PackageId, EdgeMetadata<'graph>>::new();
+        let mut dep_graph = StableDiGraph::<PackageId, EdgeMetadata<'graph>>::new();
         let mut to_be_visited = package_graph.workspace().member_ids().collect::<Vec<_>>();
         while let Some(pkg_id) = to_be_visited.pop() {
             if processed_pkg_ids.contains(&pkg_id) {
@@ -154,7 +153,7 @@ impl<'graph> AugmentedPackageGraph<'graph> {
 
 fn cyclic_dependency_error(
     cycle: &[NodeIndex],
-    graph: &StableDiGraph<PackageId, EdgeMetadata>,
+    graph: &StableDiGraph<PackageId, EdgeMetadata<'_>>,
 ) -> anyhow::Error {
     let mut error_msg = "There is a cyclic dependency in your workspace: this is not allowed!\n\
         The cycle looks like this:"

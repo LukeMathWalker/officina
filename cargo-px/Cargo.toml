@@ -9,6 +9,9 @@ license.workspace = true
 repository.workspace = true
 description = "A cargo sub-command to overcome some of the limitations of build scripts for code generation."
 
+[lints]
+workspace = true
+
 [[bin]]
 path = "src/bin/main.rs"
 name = "cargo-px"

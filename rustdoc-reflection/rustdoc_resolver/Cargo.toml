@@ -10,7 +10,7 @@ repository.workspace = true
 description = "Convert rustdoc_types into rustdoc_ir types"
 
 [lints]
-clippy = { large_enum_variant = "allow", result_large_err = "allow" }
+workspace = true
 
 [dependencies]
 ahash = { workspace = true }

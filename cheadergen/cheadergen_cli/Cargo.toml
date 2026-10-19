@@ -12,6 +12,9 @@ readme = "../README.md"
 repository.workspace = true
 description = "A tool for generating C bindings to Rust code."
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "cheadergen"
 path = "src/main.rs"

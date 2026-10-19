@@ -405,7 +405,7 @@ fn resolve_struct_kind(
 /// Resolve the non-ZST fields of a struct.
 fn resolve_struct_fields(
     struct_def: &rustdoc_types::Struct,
-    generic_bindings: &rustdoc_resolver::GenericBindings,
+    generic_bindings: &GenericBindings,
     path_type: &PathType,
     collection: &Collection,
     field_names: Option<&[String]>,
@@ -475,7 +475,7 @@ pub(crate) fn transparent_inner_type_for_path(
 /// if it has exactly one such field. Returns `None` for zero or multiple non-ZST fields.
 fn resolve_transparent_inner_type(
     struct_def: &rustdoc_types::Struct,
-    generic_bindings: &rustdoc_resolver::GenericBindings,
+    generic_bindings: &GenericBindings,
     path_type: &PathType,
     collection: &Collection,
 ) -> Option<Type> {

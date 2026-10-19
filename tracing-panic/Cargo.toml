@@ -9,6 +9,9 @@ license.workspace = true
 repository.workspace = true
 description = "A panic hook that captures panic information as a tracing event"
 
+[lints]
+workspace = true
+
 [features]
 default = ["capture-backtrace"]
 capture-backtrace = []

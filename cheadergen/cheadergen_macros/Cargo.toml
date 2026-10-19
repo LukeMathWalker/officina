@@ -8,6 +8,9 @@ license = "Apache-2.0"
 repository.workspace = true
 description = "Proc-macro attributes for cheadergen. Use the `cheadergen` crate instead of depending on this directly."
 
+[lints]
+workspace = true
+
 [lib]
 proc-macro = true
 

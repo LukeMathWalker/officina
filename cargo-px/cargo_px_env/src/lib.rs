@@ -33,11 +33,9 @@ fn px_env_var(name: &'static str) -> Result<String, VarError> {
     use std::env::{VarError, var};
 
     var(name).map_err(|e| match e {
-        VarError::NotPresent => {
-            crate::error::VarError::Missing(MissingVarError { name, source: e })
-        }
+        VarError::NotPresent => error::VarError::Missing(MissingVarError { name, source: e }),
         VarError::NotUnicode(_) => {
-            crate::error::VarError::InvalidUnicode(InvalidUnicodeError { name, source: e })
+            error::VarError::InvalidUnicode(InvalidUnicodeError { name, source: e })
         }
     })
 }

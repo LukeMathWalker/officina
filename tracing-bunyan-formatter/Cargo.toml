@@ -47,9 +47,8 @@ tracing = { version = "0.1.13", default-features = false, features = ["log", "st
 # The `valuable` tests derive `Valuable` on test types.
 valuable = { version = "0.1.0", features = ["derive"] }
 
-[lints.rust]
-# `tracing`'s `valuable` support is gated behind `--cfg tracing_unstable`.
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tracing_unstable)"] }
+[lints]
+workspace = true
 
 [[example]]
 name = "valuable"

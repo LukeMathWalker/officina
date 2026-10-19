@@ -11,6 +11,8 @@
 //! 4. **Query** ([`queries::Crate`], [`CrateCollection`]): look up items by path, resolve
 //!    cross-crate references, and retrieve canonical import paths.
 
+#![allow(clippy::large_enum_variant)]
+
 pub mod cache;
 mod collection;
 pub mod compute;

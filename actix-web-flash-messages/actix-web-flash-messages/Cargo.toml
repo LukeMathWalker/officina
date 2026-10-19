@@ -15,6 +15,9 @@ description = "Flash messages for actix-web applications."
 [package.metadata.docs.rs]
 all-features = true
 
+[lints]
+workspace = true
+
 [features]
 cookies = ["actix-web/secure-cookies", "actix-web/cookies"]
 sessions = ["actix-session/default"]

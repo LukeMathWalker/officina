@@ -242,11 +242,11 @@ const USERINFO_ENCODE_SET: &AsciiSet = &PATH_ENCODE_SET
 /// The implementations of `add_cookie` and `del_cookie` are copy-pasted from `actix-web`.
 /// These two methods on `ResponseHead` can probably be added upstream.
 trait ResponseHeadExt {
-    fn add_cookie(&mut self, cookie: &Cookie) -> Result<(), anyhow::Error>;
+    fn add_cookie(&mut self, cookie: &Cookie<'_>) -> Result<(), anyhow::Error>;
 }
 
 impl ResponseHeadExt for ResponseHead {
-    fn add_cookie(&mut self, cookie: &Cookie) -> Result<(), anyhow::Error> {
+    fn add_cookie(&mut self, cookie: &Cookie<'_>) -> Result<(), anyhow::Error> {
         HeaderValue::from_str(&cookie.to_string())
             .map(|c| {
                 self.headers_mut().append(header::SET_COOKIE, c);

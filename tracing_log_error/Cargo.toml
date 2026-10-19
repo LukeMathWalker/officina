@@ -8,6 +8,9 @@ license.workspace = true
 repository.workspace = true
 description = "A set of helpers to capture rich error context in tracing logs"
 
+[lints]
+workspace = true
+
 [dependencies]
 tracing = { version = "0.1.41", default-features = false, features = ["std"] }
 

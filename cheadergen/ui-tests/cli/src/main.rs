@@ -471,7 +471,7 @@ fn extract_skipped_fields(path: &Path) -> Vec<String> {
     fields
 }
 
-fn collect_cbindgen_tomls(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
+fn collect_cbindgen_tomls(dir: &Path, out: &mut Vec<PathBuf>) {
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(_) => return,

@@ -169,7 +169,7 @@ impl<A: DeserializeOwned + Default> RustdocGlobalFsCache<A> {
     /// Retrieve the cached documentation for a given package, if available.
     pub fn get(
         &self,
-        cache_key: &RustdocCacheKey,
+        cache_key: &RustdocCacheKey<'_>,
         package_graph: &PackageGraph,
     ) -> Result<Option<HydratedCacheEntry<A>>, anyhow::Error> {
         let connection = self.connection_pool.get()?;
@@ -192,8 +192,8 @@ impl<A> RustdocGlobalFsCache<A> {
     /// Store the JSON documentation for a crate in the cache.
     pub fn insert(
         &self,
-        cache_key: &RustdocCacheKey,
-        cache_entry: CacheEntry,
+        cache_key: &RustdocCacheKey<'_>,
+        cache_entry: CacheEntry<'_>,
         package_graph: &PackageGraph,
     ) -> Result<(), anyhow::Error> {
         let connection = self.connection_pool.get()?;

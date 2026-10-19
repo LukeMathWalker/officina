@@ -145,8 +145,8 @@ fn compute_filtered_codegen_plan<'a>(
 
 #[tracing::instrument(name = "Verify crate", skip_all, fields(crate_name = %package_metadata.name()))]
 fn verify_crate(
-    verifier: &BinaryInvocation,
-    package_metadata: &PackageMetadata,
+    verifier: &BinaryInvocation<'_>,
+    package_metadata: &PackageMetadata<'_>,
     cargo_path: &str,
     workspace_path: &Path,
     shell: &mut Shell,
@@ -232,7 +232,7 @@ fn verify_crate(
 
 #[tracing::instrument(name = "Generate crate", skip_all, fields(crate_name = %unit.package_metadata.name()))]
 fn generate_crate(
-    unit: &codegen_unit::CodegenUnit,
+    unit: &CodegenUnit<'_>,
     cargo_path: &str,
     workspace_path: &Path,
     shell: &mut Shell,

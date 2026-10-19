@@ -4,6 +4,8 @@
 //! `rustdoc_ir` (output), providing the core type-resolution logic with no
 //! framework-specific dependencies.
 
+#![allow(clippy::result_large_err)]
+
 mod errors;
 mod free_fn;
 mod method;

@@ -28,7 +28,7 @@ impl PackageIdSpecification {
         Ok(Self::from_package_metadata(&package_metadata))
     }
 
-    pub fn from_package_metadata(metadata: &PackageMetadata) -> Self {
+    pub fn from_package_metadata(metadata: &PackageMetadata<'_>) -> Self {
         let source = match metadata.source() {
             PackageSource::Workspace(source) | PackageSource::Path(source) => {
                 let source = source.strip_prefix("path+").unwrap_or(source);

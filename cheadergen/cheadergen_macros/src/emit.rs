@@ -135,7 +135,7 @@ fn rewrite_attrs_on_list(
 struct AttrsWrapper(Vec<Attribute>);
 
 impl syn::parse::Parse for AttrsWrapper {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+    fn parse(input: syn::parse::ParseStream<'_>) -> syn::Result<Self> {
         Ok(AttrsWrapper(Attribute::parse_outer(input)?))
     }
 }

@@ -61,7 +61,7 @@ use std::{
 /// }
 /// ```
 #[allow(deprecated)]
-pub fn panic_hook(panic_info: &PanicInfo) {
+pub fn panic_hook(panic_info: &PanicInfo<'_>) {
     let payload = panic_info.payload();
 
     #[allow(clippy::manual_map)]

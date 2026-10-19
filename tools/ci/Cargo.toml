@@ -5,6 +5,9 @@ edition.workspace = true
 publish = false
 description = "Selects and runs the CI checks affected by a change."
 
+[lints]
+workspace = true
+
 [dependencies]
 anyhow = { workspace = true }
 clap = { version = "4", features = ["derive"] }

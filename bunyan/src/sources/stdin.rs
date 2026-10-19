@@ -6,7 +6,7 @@ pub fn process_stdin(format: Format, level_filter: u8, strict: bool) {
     let stdin = std::io::stdin();
     for line in stdin.lock().lines() {
         let line = line.unwrap();
-        match serde_json::from_str::<LogRecord>(&line) {
+        match serde_json::from_str::<LogRecord<'_>>(&line) {
             Ok(r) => {
                 if r.level >= level_filter {
                     print!("{}", r.format(format))

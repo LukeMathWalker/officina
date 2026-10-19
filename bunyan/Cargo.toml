@@ -8,6 +8,9 @@ license.workspace = true
 repository.workspace = true
 description = "A CLI to pretty print structured logs. A Rust port of the original JavaScript bunyan CLI."
 
+[lints]
+workspace = true
+
 [[bin]]
 path = "src/main.rs"
 name = "bunyan"

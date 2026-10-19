@@ -70,7 +70,7 @@ pub(crate) struct CbindgenConfig {
 struct CbindgenFnSection {
     sort_by: Option<String>,
     #[serde(flatten)]
-    other: std::collections::HashMap<String, toml::Value>,
+    other: HashMap<String, toml::Value>,
 }
 
 /// Cbindgen `[const]` section. Currently only `sort_by` is translatable.
@@ -78,7 +78,7 @@ struct CbindgenFnSection {
 struct CbindgenConstSection {
     sort_by: Option<String>,
     #[serde(flatten)]
-    other: std::collections::HashMap<String, toml::Value>,
+    other: HashMap<String, toml::Value>,
 }
 
 /// Cbindgen `[enum]` section. Currently only `prefix_with_name` is translatable.
@@ -86,7 +86,7 @@ struct CbindgenConstSection {
 struct CbindgenEnumSection {
     prefix_with_name: Option<bool>,
     #[serde(flatten)]
-    other: std::collections::HashMap<String, toml::Value>,
+    other: HashMap<String, toml::Value>,
 }
 
 /// Translate a cbindgen config file into cheadergen format.

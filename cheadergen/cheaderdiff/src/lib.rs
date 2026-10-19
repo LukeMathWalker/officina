@@ -241,7 +241,7 @@ pub fn diff_headers(left: &str, right: &str) -> anyhow::Result<HeaderDiff> {
 }
 
 /// Extract the identity name from a top-level tree-sitter node.
-fn extract_item_name(node: tree_sitter::Node, source: &[u8]) -> Option<String> {
+fn extract_item_name(node: tree_sitter::Node<'_>, source: &[u8]) -> Option<String> {
     match node.kind() {
         "declaration" | "function_definition" | "type_definition" => {
             let declarator = node.child_by_field_name("declarator")?;
@@ -261,7 +261,7 @@ fn extract_item_name(node: tree_sitter::Node, source: &[u8]) -> Option<String> {
 
 /// Recursively follow the `declarator` field through wrapper nodes until
 /// reaching an `identifier` or `type_identifier` leaf.
-fn extract_name_from_declarator(node: tree_sitter::Node, source: &[u8]) -> Option<String> {
+fn extract_name_from_declarator(node: tree_sitter::Node<'_>, source: &[u8]) -> Option<String> {
     match node.kind() {
         "identifier" | "type_identifier" => node.utf8_text(source).ok().map(str::to_string),
         "pointer_declarator"

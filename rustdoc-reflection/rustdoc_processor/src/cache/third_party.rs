@@ -47,13 +47,13 @@ impl ThirdPartyCrateCache {
     )]
     pub(super) fn get<A: DeserializeOwned + Default>(
         &self,
-        package_metadata: &PackageMetadata,
+        package_metadata: &PackageMetadata<'_>,
         cargo_fingerprint: &str,
         connection: &rusqlite::Connection,
         package_graph: &PackageGraph,
     ) -> Result<Option<HydratedCacheEntry<A>>, anyhow::Error> {
         fn _get<A: DeserializeOwned + Default>(
-            package_metadata: &PackageMetadata,
+            package_metadata: &PackageMetadata<'_>,
             cargo_fingerprint: &str,
             connection: &rusqlite::Connection,
             cache_workspace_packages: bool,
@@ -171,7 +171,7 @@ impl ThirdPartyCrateCache {
     /// Compute the cache key for a given package.
     pub(super) fn cache_key<'a>(
         &self,
-        package_metadata: &'a PackageMetadata,
+        package_metadata: &'a PackageMetadata<'_>,
         cargo_fingerprint: &'a str,
         package_graph: &PackageGraph,
     ) -> Option<ThirdPartyCrateCacheKey<'a>> {

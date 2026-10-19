@@ -426,7 +426,7 @@ impl ShellOut {
         justified: bool,
     ) -> anyhow::Result<()> {
         let style = style.render();
-        let bold = (anstyle::Style::new() | anstyle::Effects::BOLD).render();
+        let bold = (Style::new() | anstyle::Effects::BOLD).render();
         let reset = anstyle::Reset.render();
 
         let mut buffer = Vec::new();

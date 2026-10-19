@@ -11,6 +11,9 @@ readme = "../README.md"
 repository.workspace = true
 description = "Annotations for controlling C/C++ header generation from Rust."
 
+[lints]
+workspace = true
+
 [dependencies]
 cheadergen_macros = { workspace = true }
 
