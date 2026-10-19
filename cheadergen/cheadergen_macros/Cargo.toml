@@ -2,10 +2,10 @@
 name = "cheadergen_macros"
 version = "0.3.3"
 documentation = "https://docs.rs/cheadergen_macros"
-edition = "2024"
+edition.workspace = true
 homepage = "https://cheadergen.com"
 license = "Apache-2.0"
-repository = "https://github.com/LukeMathWalker/officina"
+repository.workspace = true
 description = "Proc-macro attributes for cheadergen. Use the `cheadergen` crate instead of depending on this directly."
 
 [lib]

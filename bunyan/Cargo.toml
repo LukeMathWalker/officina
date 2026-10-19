@@ -1,11 +1,11 @@
 [package]
 name = "bunyan"
 version = "0.1.10"
-authors = ["Luca Palmieri <rust@lpalmieri.com>"]
-edition = "2024"
+authors.workspace = true
+edition.workspace = true
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/bunyan"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/LukeMathWalker/officina"
+license.workspace = true
+repository.workspace = true
 description = "A CLI to pretty print structured logs. A Rust port of the original JavaScript bunyan CLI."
 
 [[bin]]

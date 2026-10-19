@@ -39,6 +39,14 @@ members = [
     "tracing_log_error",
 ]
 
+# Metadata shared by the workspace's crates, which opt in field by field
+# (e.g. `edition.workspace = true`).
+[workspace.package]
+authors = ["Luca Palmieri <rust@lpalmieri.com>"]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/LukeMathWalker/officina"
+
 [workspace.dependencies]
 # Crates in this repository
 cheadergen = { path = "cheadergen/cheadergen", version = "0.3.3" }

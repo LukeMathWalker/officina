@@ -2,11 +2,11 @@
 name = "cargo-px"
 version = "0.1.21"
 categories = ["development-tools::cargo-plugins", "command-line-utilities"]
-edition = "2024"
+edition.workspace = true
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/cargo-px"
 keywords = ["cargo", "generator", "build", "scripts", "generate"]
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/LukeMathWalker/officina"
+license.workspace = true
+repository.workspace = true
 description = "A cargo sub-command to overcome some of the limitations of build scripts for code generation."
 
 [[bin]]

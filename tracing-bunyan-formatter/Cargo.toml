@@ -1,15 +1,15 @@
 [package]
 name = "tracing-bunyan-formatter"
 version = "0.3.11"
-authors = ["Luca Palmieri <rust@lpalmieri.com>"]
-edition = "2024"
+authors.workspace = true
+edition.workspace = true
 
-license = "MIT OR Apache-2.0"
+license.workspace = true
 
 documentation = "https://docs.rs/tracing-bunyan-formatter/"
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/tracing-bunyan-formatter"
 readme = "README.md"
-repository = "https://github.com/LukeMathWalker/officina"
+repository.workspace = true
 
 description = "A Bunyan formatter for the tracing crate"
 

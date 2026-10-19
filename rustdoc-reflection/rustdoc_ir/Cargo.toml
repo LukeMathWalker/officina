@@ -2,11 +2,11 @@
 name = "rustdoc_ir"
 version = "0.1.2"
 categories = ["development-tools", "data-structures"]
-edition = "2024"
+edition.workspace = true
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/rustdoc-reflection/rustdoc_ir"
 keywords = ["rustdoc-json", "reflection", "rustdoc"]
 license = "Apache-2.0"
-repository = "https://github.com/LukeMathWalker/officina"
+repository.workspace = true
 description = "An Intermediate Representation for Rust types and functions"
 
 [dependencies]

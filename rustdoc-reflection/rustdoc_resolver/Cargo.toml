@@ -2,11 +2,11 @@
 name = "rustdoc_resolver"
 version = "0.1.2"
 categories = ["development-tools", "parser-implementations"]
-edition = "2024"
+edition.workspace = true
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/rustdoc-reflection/rustdoc_resolver"
 keywords = ["rustdoc-json", "reflection", "rustdoc"]
 license = "Apache-2.0"
-repository = "https://github.com/LukeMathWalker/officina"
+repository.workspace = true
 description = "Convert rustdoc_types into rustdoc_ir types"
 
 [lints]

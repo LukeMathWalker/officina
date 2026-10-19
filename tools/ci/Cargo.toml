@@ -1,7 +1,7 @@
 [package]
 name = "officina-ci"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 publish = false
 description = "Selects and runs the CI checks affected by a change."
 

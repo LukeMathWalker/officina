@@ -1,15 +1,15 @@
 [package]
 name = "actix-web-flash-messages"
 version = "0.5.1"
-authors = ["Luca Palmieri <rust@lpalmieri.com>"]
+authors.workspace = true
 categories = ["asynchronous"]
 documentation = "https://docs.rs/actix-web-flash-messages/"
-edition = "2024"
+edition.workspace = true
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/actix-web-flash-messages/actix-web-flash-messages"
 keywords = ["flash", "messages", "actix-web", "notifications"]
-license = "MIT OR Apache-2.0"
+license.workspace = true
 readme = "../README.md"
-repository = "https://github.com/LukeMathWalker/officina"
+repository.workspace = true
 description = "Flash messages for actix-web applications."
 
 [package.metadata.docs.rs]

@@ -1,11 +1,11 @@
 [package]
 name = "tracing_log_error"
 version = "0.1.5"
-edition = "2024"
+edition.workspace = true
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/tracing_log_error"
 keywords = ["tracing", "telemetry", "logging", "error-handling"]
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/LukeMathWalker/officina"
+license.workspace = true
+repository.workspace = true
 description = "A set of helpers to capture rich error context in tracing logs"
 
 [dependencies]

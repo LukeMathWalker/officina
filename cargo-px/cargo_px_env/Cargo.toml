@@ -2,11 +2,11 @@
 name = "cargo_px_env"
 version = "0.1.1"
 categories = ["development-tools::cargo-plugins"]
-edition = "2024"
+edition.workspace = true
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/cargo-px/cargo_px_env"
 keywords = ["cargo", "cargo-px", "build", "scripts", "generate"]
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/LukeMathWalker/officina"
+license.workspace = true
+repository.workspace = true
 description = "Bindings to retrieve the environment variables set by cargo-px"
 
 [package.metadata.ci]
