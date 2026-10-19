@@ -63,7 +63,7 @@ impl fmt::Display for SkipFieldError {
         write!(
             f,
             "{} is a core field in the bunyan log format, it can't be skipped",
-            &self.0
+            self.0
         )
     }
 }
