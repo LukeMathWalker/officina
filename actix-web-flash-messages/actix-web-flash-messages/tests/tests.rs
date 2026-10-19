@@ -3,7 +3,7 @@
 
 use actix_web::cookie::Key;
 use actix_web::web::resource;
-use actix_web::{web, App, HttpResponse, Responder};
+use actix_web::{App, HttpResponse, Responder, web};
 use actix_web_flash_messages::{FlashMessage, FlashMessagesFramework, IncomingFlashMessages};
 use std::fmt::Write;
 
@@ -186,7 +186,7 @@ mod cookies {
 #[cfg(feature = "sessions")]
 mod sessions {
     use super::*;
-    use actix_session::{storage::CookieSessionStore, SessionMiddleware};
+    use actix_session::{SessionMiddleware, storage::CookieSessionStore};
     use actix_web_flash_messages::storage::SessionMessageStore;
 
     #[actix_rt::test]

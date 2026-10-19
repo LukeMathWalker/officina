@@ -10,10 +10,10 @@ use tracing::{Event, Id, Metadata, Subscriber};
 use tracing_core::metadata::Level;
 use tracing_core::span::Attributes;
 use tracing_log::AsLog;
+use tracing_subscriber::Layer;
 use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::layer::Context;
 use tracing_subscriber::registry::SpanRef;
-use tracing_subscriber::Layer;
 
 /// Keys for core fields of the Bunyan format (https://github.com/trentm/node-bunyan#core-fields)
 const BUNYAN_VERSION: &str = "v";
@@ -349,7 +349,7 @@ where
             for (key, value) in event_visitor
                 .values()
                 .iter()
-                .filter(|(&key, _)| key != "message" && !BUNYAN_REQUIRED_FIELDS.contains(&key))
+                .filter(|&(&key, _)| key != "message" && !BUNYAN_REQUIRED_FIELDS.contains(&key))
             {
                 self.serialize_field(&mut map_serializer, key, value)?;
             }

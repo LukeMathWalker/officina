@@ -44,7 +44,11 @@ impl std::error::Error for VarError {
 
 impl std::fmt::Display for MissingVarError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "The environment variable `{}` is missing. Are you running the command through `cargo px`?", self.name)
+        write!(
+            f,
+            "The environment variable `{}` is missing. Are you running the command through `cargo px`?",
+            self.name
+        )
     }
 }
 

@@ -30,7 +30,7 @@ pub fn generated_pkg_manifest_path() -> Result<PathBuf, VarError> {
 ///
 /// It returns an error if the variable is not set or if it contains invalid Unicode data.
 fn px_env_var(name: &'static str) -> Result<String, VarError> {
-    use std::env::{var, VarError};
+    use std::env::{VarError, var};
 
     var(name).map_err(|e| match e {
         VarError::NotPresent => {

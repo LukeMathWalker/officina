@@ -3,8 +3,8 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use colored::Colorize;
 use itertools::Itertools;
 use serde::Serialize;
-use serde_json::ser::PrettyFormatter;
 use serde_json::Serializer;
+use serde_json::ser::PrettyFormatter;
 use std::borrow::Cow;
 use std::convert::TryFrom;
 

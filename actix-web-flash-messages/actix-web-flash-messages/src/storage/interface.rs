@@ -1,6 +1,6 @@
 use crate::FlashMessage;
-use actix_web::dev::ResponseHead;
 use actix_web::HttpRequest;
+use actix_web::dev::ResponseHead;
 
 /// The interface to retrieve and dispatch flash messages.
 ///
@@ -33,7 +33,9 @@ pub trait FlashMessageStore: Send + Sync {
 pub enum LoadError {
     #[error("Failed to deserialize incoming flash messages")]
     DeserializationError(#[source] anyhow::Error),
-    #[error("The content of incoming flash messages failed a cryptographic integrity check (e.g. signature verification)")]
+    #[error(
+        "The content of incoming flash messages failed a cryptographic integrity check (e.g. signature verification)"
+    )]
     IntegrityCheckFailed(#[source] anyhow::Error),
     #[error("Something went wrong when extracting incoming flash messages")]
     GenericError(#[source] anyhow::Error),

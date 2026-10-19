@@ -1,7 +1,7 @@
-use actix_session::storage::RedisSessionStore;
 use actix_session::SessionMiddleware;
+use actix_session::storage::RedisSessionStore;
 use actix_web::cookie::{Key, SameSite};
-use actix_web::{http, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{App, HttpResponse, HttpServer, Responder, http, web};
 use actix_web_flash_messages::storage::SessionMessageStore;
 use actix_web_flash_messages::{
     FlashMessage, FlashMessagesFramework, IncomingFlashMessages, Level,

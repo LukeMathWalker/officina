@@ -2,7 +2,7 @@
 name = "cargo-px"
 version = "0.1.21"
 categories = ["development-tools::cargo-plugins", "command-line-utilities"]
-edition = "2021"
+edition = "2024"
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/cargo-px"
 keywords = ["cargo", "generator", "build", "scripts", "generate"]
 license = "Apache-2.0 OR MIT"

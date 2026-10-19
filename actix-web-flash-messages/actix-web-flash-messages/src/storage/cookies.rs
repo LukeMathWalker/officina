@@ -1,13 +1,13 @@
-use crate::storage::interface::{FlashMessageStore, LoadError, StoreError};
 use crate::FlashMessage;
+use crate::storage::interface::{FlashMessageStore, LoadError, StoreError};
+use actix_web::HttpRequest;
 use actix_web::cookie::{Cookie, SameSite};
 use actix_web::cookie::{CookieJar, Key};
 use actix_web::dev::ResponseHead;
 use actix_web::http::header;
 use actix_web::http::header::HeaderValue;
-use actix_web::HttpRequest;
 use anyhow::Context;
-use percent_encoding::{percent_encode, AsciiSet};
+use percent_encoding::{AsciiSet, percent_encode};
 
 /// A cookie-based implementation of flash messages.
 ///

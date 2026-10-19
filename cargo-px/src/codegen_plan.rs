@@ -2,13 +2,13 @@ use std::fmt::Write;
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use guppy::{
-    graph::{DependencyDirection, PackageGraph},
     PackageId,
+    graph::{DependencyDirection, PackageGraph},
 };
 use petgraph::{
+    Direction::Incoming,
     stable_graph::{IndexType, NodeIndex, StableDiGraph},
     visit::DfsPostOrder,
-    Direction::Incoming,
 };
 
 use crate::codegen_unit::CodegenUnit;

@@ -1,8 +1,8 @@
-use crate::storage::{FlashMessageStore, LoadError, StoreError};
 use crate::FlashMessage;
+use crate::storage::{FlashMessageStore, LoadError, StoreError};
 use actix_session::SessionExt;
-use actix_web::dev::ResponseHead;
 use actix_web::HttpRequest;
+use actix_web::dev::ResponseHead;
 
 /// A session-based implementation of flash messages.
 ///

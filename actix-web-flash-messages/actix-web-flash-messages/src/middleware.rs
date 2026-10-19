@@ -5,9 +5,9 @@ use std::pin::Pin;
 use actix_web::dev::{Service, ServiceRequest, ServiceResponse, Transform};
 
 use crate::builder::FlashMessagesFramework;
-use crate::{storage::FlashMessageStore, FlashMessage, Level};
-use actix_web::body::MessageBody;
+use crate::{FlashMessage, Level, storage::FlashMessageStore};
 use actix_web::HttpMessage;
+use actix_web::body::MessageBody;
 use std::sync::Arc;
 
 tokio::task_local! {

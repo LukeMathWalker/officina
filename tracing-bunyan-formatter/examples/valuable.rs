@@ -1,5 +1,5 @@
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
-use tracing_subscriber::{layer::SubscriberExt, Registry};
+use tracing_subscriber::{Registry, layer::SubscriberExt};
 use valuable::Valuable;
 
 #[derive(Valuable)]

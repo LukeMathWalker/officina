@@ -1,5 +1,5 @@
-use crate::record::LogRecord;
 use crate::Format;
+use crate::record::LogRecord;
 use std::io::BufRead;
 
 pub fn process_stdin(format: Format, level_filter: u8, strict: bool) {

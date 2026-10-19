@@ -91,9 +91,11 @@ impl FlashMessage {
         });
 
         if result.is_err() {
-            panic!("Failed to send flash message!\n\
+            panic!(
+                "Failed to send flash message!\n\
                 To use `FlashMessages::send` you need to add `FlashMessageFramework` as a middleware \
-                on your `actix-web` application using `wrap`. Check out `actix-web-flash-messages`'s documentation for more details.")
+                on your `actix-web` application using `wrap`. Check out `actix-web-flash-messages`'s documentation for more details."
+            )
         }
     }
 }

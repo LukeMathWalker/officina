@@ -6,7 +6,7 @@ use codegen_unit::CodegenUnit;
 use guppy::graph::{PackageGraph, PackageMetadata};
 use targets::determine_targets;
 
-use crate::codegen_unit::{extract_codegen_units, BinaryInvocation};
+use crate::codegen_unit::{BinaryInvocation, extract_codegen_units};
 
 mod codegen_plan;
 mod codegen_unit;

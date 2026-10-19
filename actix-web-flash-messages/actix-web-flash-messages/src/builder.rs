@@ -1,5 +1,5 @@
-use crate::storage::FlashMessageStore;
 use crate::Level;
+use crate::storage::FlashMessageStore;
 use std::sync::Arc;
 
 #[derive(Clone)]

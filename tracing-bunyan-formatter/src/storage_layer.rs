@@ -4,8 +4,8 @@ use std::time::Instant;
 use tracing::field::{Field, Visit};
 use tracing::span::{Attributes, Record};
 use tracing::{Id, Subscriber};
-use tracing_subscriber::layer::Context;
 use tracing_subscriber::Layer;
+use tracing_subscriber::layer::Context;
 
 /// This layer is only concerned with information storage, it does not do any formatting or provide any output.
 ///

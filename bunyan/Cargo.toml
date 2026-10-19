@@ -2,7 +2,7 @@
 name = "bunyan"
 version = "0.1.10"
 authors = ["Luca Palmieri <rust@lpalmieri.com>"]
-edition = "2018"
+edition = "2024"
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/bunyan"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/LukeMathWalker/officina"

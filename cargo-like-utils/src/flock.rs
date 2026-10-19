@@ -12,7 +12,7 @@ use std::io;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Display, Path, PathBuf};
 
-use crate::shell::{style, Shell};
+use crate::shell::{Shell, style};
 use anyhow::Context as _;
 use sys::*;
 
@@ -99,10 +99,10 @@ impl Write for FileLock {
 
 impl Drop for FileLock {
     fn drop(&mut self) {
-        if let Some(f) = self.f.take() {
-            if let Err(e) = unlock(&f) {
-                tracing::warn!("failed to release lock: {e:?}");
-            }
+        if let Some(f) = self.f.take()
+            && let Err(e) = unlock(&f)
+        {
+            tracing::warn!("failed to release lock: {e:?}");
         }
     }
 }
@@ -525,7 +525,7 @@ mod sys {
     use windows_sys::Win32::Foundation::HANDLE;
     use windows_sys::Win32::Foundation::{ERROR_INVALID_FUNCTION, ERROR_LOCK_VIOLATION};
     use windows_sys::Win32::Storage::FileSystem::{
-        LockFileEx, UnlockFile, LOCKFILE_EXCLUSIVE_LOCK, LOCKFILE_FAIL_IMMEDIATELY,
+        LOCKFILE_EXCLUSIVE_LOCK, LOCKFILE_FAIL_IMMEDIATELY, LockFileEx, UnlockFile,
     };
 
     pub(super) fn lock_shared(file: &File) -> Result<()> {

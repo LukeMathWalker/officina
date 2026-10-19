@@ -1,13 +1,13 @@
 use crate::mock_writer::MockWriter;
 use claims::assert_some_eq;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use time::format_description::well_known::Rfc3339;
-use tracing::{info, span, Level};
+use tracing::{Level, info, span};
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
-use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::Registry;
+use tracing_subscriber::layer::SubscriberExt;
 
 mod mock_writer;
 
