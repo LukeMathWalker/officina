@@ -126,7 +126,7 @@ pub(crate) fn index_local_types<'a, V: IndexingVisitor>(
             }
             panic!(
                 "Failed to retrieve item id `{:?}` from the JSON `index` for package id `{}`.",
-                &current_item_id,
+                current_item_id,
                 package_id.repr()
             )
         }

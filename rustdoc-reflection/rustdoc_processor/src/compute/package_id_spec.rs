@@ -81,7 +81,7 @@ impl Display for PackageIdSpecification {
             let source = source.split('#').next().unwrap();
             write!(f, "{source}#")?;
         }
-        write!(f, "{}", &self.name)?;
+        write!(f, "{}", self.name)?;
         if let Some(version) = &self.version {
             write!(f, "@{version}")?;
         }
