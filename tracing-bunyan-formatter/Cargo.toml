@@ -4,7 +4,7 @@ version = "0.3.11"
 authors = ["Luca Palmieri <rust@lpalmieri.com>"]
 edition = "2024"
 
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 
 documentation = "https://docs.rs/tracing-bunyan-formatter/"
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/tracing-bunyan-formatter"
