@@ -1,6 +1,6 @@
 [package]
 name = "cheadergen_macros"
-version = "0.3.3"
+version = "0.3.4"
 documentation = "https://docs.rs/cheadergen_macros"
 edition.workspace = true
 homepage = "https://cheadergen.com"

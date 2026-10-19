@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2](https://github.com/LukeMathWalker/officina/compare/cargo_px_env-v0.1.1...cargo_px_env-v0.1.2) - 2026-10-19
+
+### ⚙️ Other
+
+- _(workspace)_ align crate manifests ([#48](https://github.com/LukeMathWalker/officina/pull/48)) (by @LukeMathWalker)
+
+### Contributors
+
+- @LukeMathWalker
+
 ## [0.1.1](https://github.com/LukeMathWalker/officina/compare/cargo_px_env-v0.1.0...cargo_px_env-v0.1.1) - 2026-10-12
 
 ### ⚙️ Other

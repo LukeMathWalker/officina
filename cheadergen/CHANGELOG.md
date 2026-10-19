@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4](https://github.com/LukeMathWalker/officina/compare/cheadergen-v0.3.3...cheadergen-v0.3.4) - 2026-10-19
+
+### ⚙️ Other
+
+- _(workspace)_ align crate manifests ([#48](https://github.com/LukeMathWalker/officina/pull/48)) (by @LukeMathWalker)
+
+### Contributors
+
+- @LukeMathWalker
+
 ## [0.3.3](https://github.com/LukeMathWalker/officina/compare/cheadergen-v0.3.2...cheadergen-v0.3.3) - 2026-10-12
 
 ### ⚙️ Other
