@@ -1,6 +1,7 @@
 # Opens or updates the release PR on every push to main: version bumps (with
 # cargo-semver-checks) and changelogs, configured in `release-plz.toml`.
 # Merging it releases the bumped crates (see `release.yml`), which refreshes the release PR when done.
+# It also points cheadergen's install docs to the new version, which release-plz doesn't do.
 name: Release PR
 
 on:
@@ -70,9 +71,39 @@ jobs:
         with:
           tool: dprint
       - if: steps.app.outputs.available == 'true' && steps.pending.outputs.has-release == 'false'
+        id: release-plz
         uses: release-plz/action@f393a7b38aca9d9b4c58447b291dbac963901df6 # v0.5.141
         with:
           command: release-pr
           config: release-plz.toml
         env:
           GITHUB_TOKEN: ${{ steps.token.outputs.token }}
+      # release-plz only bumps versions and changelogs: also point cheadergen's install docs to
+      # the new version, which `cheadergen/scripts/check_docs_version.sh` checks on the release PR.
+      # Every release-plz update rewrites the release branch, so this runs after each one.
+      - name: Point cheadergen's docs to the release
+        if: steps.release-plz.outputs.pr != ''
+        env:
+          PR: ${{ steps.release-plz.outputs.pr }}
+          APP_SLUG: ${{ steps.token.outputs.app-slug }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          branch=$(jq -r '.head_branch // empty' <<< "$PR")
+          if [[ -z "$branch" ]]; then
+            echo "No release PR."
+            exit 0
+          fi
+          git fetch --quiet origin "$branch"
+          git switch --quiet --detach "origin/$branch"
+          bash cheadergen/scripts/bump_docs_version.sh
+          if git diff --quiet; then
+            echo "cheadergen's docs already point to the release."
+            exit 0
+          fi
+          # Commit as the App's bot user, like release-plz.
+          bot="${APP_SLUG}[bot]"
+          bot_id=$(gh api "/users/$bot" --jq .id)
+          export GIT_AUTHOR_NAME="$bot" GIT_AUTHOR_EMAIL="$bot_id+$bot@users.noreply.github.com"
+          export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME" GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+          git commit --quiet --all --message "docs(cheadergen): point the install docs to the release"
+          git push --quiet origin "HEAD:refs/heads/$branch"
