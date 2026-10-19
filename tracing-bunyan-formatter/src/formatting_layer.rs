@@ -10,10 +10,10 @@ use tracing::{Event, Id, Metadata, Subscriber};
 use tracing_core::metadata::Level;
 use tracing_core::span::Attributes;
 use tracing_log::AsLog;
+use tracing_subscriber::Layer;
 use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::layer::Context;
 use tracing_subscriber::registry::SpanRef;
-use tracing_subscriber::Layer;
 
 /// Keys for core fields of the Bunyan format (https://github.com/trentm/node-bunyan#core-fields)
 const BUNYAN_VERSION: &str = "v";
@@ -196,7 +196,7 @@ impl<W: for<'a> MakeWriter<'a> + 'static> BunyanFormattingLayer<W> {
     /// Given a span, it serialised it to a in-memory buffer (vector of bytes).
     fn serialize_span<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>>(
         &self,
-        span: &SpanRef<S>,
+        span: &SpanRef<'_, S>,
         ty: Type,
     ) -> Result<Vec<u8>, std::io::Error> {
         let mut buffer = Vec::new();
@@ -221,7 +221,7 @@ impl<W: for<'a> MakeWriter<'a> + 'static> BunyanFormattingLayer<W> {
         }
 
         let extensions = span.extensions();
-        if let Some(visitor) = extensions.get::<JsonStorage>() {
+        if let Some(visitor) = extensions.get::<JsonStorage<'_>>() {
             for (key, value) in visitor.values() {
                 // Make sure this key isn't reserved. If it is reserved,
                 // silently ignore
@@ -270,7 +270,7 @@ impl fmt::Display for Type {
 ///
 /// Example: "[AN_INTERESTING_SPAN - START]"
 fn format_span_context<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>>(
-    span: &SpanRef<S>,
+    span: &SpanRef<'_, S>,
     ty: Type,
 ) -> String {
     format!("[{} - {}]", span.metadata().name().to_uppercase(), ty)
@@ -282,8 +282,8 @@ fn format_span_context<S: Subscriber + for<'a> tracing_subscriber::registry::Loo
 /// - "[AN_INTERESTING_SPAN - EVENT] My event message" (for an event with a parent span)
 /// - "My event message" (for an event without a parent span)
 fn format_event_message<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>>(
-    current_span: &Option<SpanRef<S>>,
-    event: &Event,
+    current_span: &Option<SpanRef<'_, S>>,
+    event: &Event<'_>,
     event_visitor: &JsonStorage<'_>,
 ) -> String {
     // Extract the "message" field, if provided. Fallback to the target, if missing.
@@ -349,7 +349,7 @@ where
             for (key, value) in event_visitor
                 .values()
                 .iter()
-                .filter(|(&key, _)| key != "message" && !BUNYAN_REQUIRED_FIELDS.contains(&key))
+                .filter(|&(&key, _)| key != "message" && !BUNYAN_REQUIRED_FIELDS.contains(&key))
             {
                 self.serialize_field(&mut map_serializer, key, value)?;
             }
@@ -357,7 +357,7 @@ where
             // Add all the fields from the current span, if we have one.
             if let Some(span) = &current_span {
                 let extensions = span.extensions();
-                if let Some(visitor) = extensions.get::<JsonStorage>() {
+                if let Some(visitor) = extensions.get::<JsonStorage<'_>>() {
                     for (key, value) in visitor.values() {
                         // Make sure this key isn't reserved. If it is reserved,
                         // silently ignore
@@ -380,7 +380,7 @@ where
         }
     }
 
-    fn on_new_span(&self, _attrs: &Attributes, id: &Id, ctx: Context<'_, S>) {
+    fn on_new_span(&self, _attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
         let span = ctx.span(id).expect("Span not found, this is a bug");
         if let Ok(serialized) = self.serialize_span(&span, Type::EnterSpan) {
             let _ = self.emit(&serialized, span.metadata());

@@ -7,7 +7,7 @@ pub fn command() -> Command {
 
 pub fn get_corpus_path() -> PathBuf {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-    std::path::PathBuf::from(manifest_dir)
+    PathBuf::from(manifest_dir)
         .join("tests")
         .join("all")
         .join("corpus")

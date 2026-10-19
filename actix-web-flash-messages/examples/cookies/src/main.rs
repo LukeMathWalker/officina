@@ -1,5 +1,5 @@
 use actix_web::cookie::Key;
-use actix_web::{http, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{App, HttpResponse, HttpServer, Responder, http, web};
 use actix_web_flash_messages::storage::CookieMessageStore;
 use actix_web_flash_messages::{
     FlashMessage, FlashMessagesFramework, IncomingFlashMessages, Level,

@@ -11,7 +11,7 @@ pub enum RkyvCowBytes<'a> {
 }
 
 impl ToSql for RkyvCowBytes<'_> {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
         let s = match self {
             RkyvCowBytes::Borrowed(items) => items,
             RkyvCowBytes::Owned(s) => s.as_slice(),

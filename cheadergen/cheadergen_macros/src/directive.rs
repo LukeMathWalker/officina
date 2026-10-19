@@ -86,7 +86,7 @@ pub struct Directives {
 }
 
 impl Parse for Directives {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let mut items = Vec::new();
         while !input.is_empty() {
             items.push(input.parse()?);
@@ -99,7 +99,7 @@ impl Parse for Directives {
 }
 
 impl Parse for Directive {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let ident: Ident = input.call(Ident::parse_any)?;
         let span = ident.span();
 
@@ -163,7 +163,7 @@ pub struct FieldDirectives {
 }
 
 impl Parse for FieldDirectives {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let mut items = Vec::new();
         while !input.is_empty() {
             items.push(input.parse()?);
@@ -176,7 +176,7 @@ impl Parse for FieldDirectives {
 }
 
 impl Parse for FieldDirective {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let ident: Ident = input.call(Ident::parse_any)?;
         let span = ident.span();
 

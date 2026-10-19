@@ -1,7 +1,7 @@
 use anyhow::Context;
 use cargo_px::{Shell, Verbosity};
-use std::process::{exit, Command};
-use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
+use std::process::{Command, exit};
+use tracing_subscriber::{EnvFilter, fmt::format::FmtSpan};
 
 /// The name of the environment variable that can be used to enable (and configure) `tracing`
 /// output for `cargo px`.
@@ -88,10 +88,8 @@ fn main() {
         }
     }
 
-    if has_codegened {
-        if let Some(cargo_command) = forwarded_args.first() {
-            let _ = shell.status("Invoking", format!("`cargo {cargo_command}`"));
-        }
+    if has_codegened && let Some(cargo_command) = forwarded_args.first() {
+        let _ = shell.status("Invoking", format!("`cargo {cargo_command}`"));
     }
 
     let mut cmd = Command::new(cargo_path);

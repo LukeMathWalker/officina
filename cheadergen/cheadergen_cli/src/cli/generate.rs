@@ -104,12 +104,12 @@ pub(super) struct GenerateArgs {
 /// can layer per-package over global in one place.
 pub(crate) struct PackageTypeOverrides {
     /// Types from these packages are emitted as opaque forward declarations.
-    pub opaque: HashSet<guppy::PackageId>,
+    pub opaque: HashSet<PackageId>,
     /// Types from these packages are not emitted at all.
-    pub skipped: HashSet<guppy::PackageId>,
+    pub skipped: HashSet<PackageId>,
     /// Per-package `usize_is_size_t` overrides. Items defined in a package
     /// listed here use the bool here instead of [`Self::global_usize_is_size_t`].
-    pub usize_is_size_t: HashMap<guppy::PackageId, bool>,
+    pub usize_is_size_t: HashMap<PackageId, bool>,
     /// Global `usize_is_size_t` resolved from the top-level config.
     pub global_usize_is_size_t: bool,
 }
@@ -119,7 +119,7 @@ impl PackageTypeOverrides {
     ///
     /// Layered lookup (most-specific first): per-package override → global default.
     /// A future per-item annotation layer will be added as the new first step.
-    pub fn usize_is_size_t(&self, package_id: &guppy::PackageId) -> bool {
+    pub fn usize_is_size_t(&self, package_id: &PackageId) -> bool {
         self.usize_is_size_t
             .get(package_id)
             .copied()
@@ -157,7 +157,7 @@ fn resolve_package_overrides(
 ) -> Result<PackageTypeOverrides, anyhow::Error> {
     let mut opaque = HashSet::new();
     let mut skipped = HashSet::new();
-    let mut usize_is_size_t: HashMap<guppy::PackageId, bool> = HashMap::new();
+    let mut usize_is_size_t: HashMap<PackageId, bool> = HashMap::new();
     let graph = collection.package_graph();
 
     for (key, config) in package_configs {
@@ -454,7 +454,7 @@ pub(super) fn generate(cli: &GenerateArgs) -> anyhow::Result<()> {
 
     // Warn for [header.<name>] sections whose key doesn't match any selected
     // package's final base header name.
-    let package_base_names: std::collections::HashSet<String> = packages
+    let package_base_names: HashSet<String> = packages
         .iter()
         .map(|(id, name)| target_base_name(collection.package_graph(), id, name, &header_renames))
         .collect();
@@ -835,7 +835,7 @@ fn prune_orphan_headers(
 /// Processes a single crate: loads its rustdoc JSON via [`Collection`],
 /// resolves items to the IR, and emits the header file.
 fn generate_one_crate(
-    package_id: &guppy::PackageId,
+    package_id: &PackageId,
     package_name: &str,
     config: &config::Config,
     collection: &Collection,

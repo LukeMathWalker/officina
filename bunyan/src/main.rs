@@ -1,4 +1,4 @@
-use bunyan::{process_stdin, Format, NumericalLogLevel};
+use bunyan::{Format, NumericalLogLevel, process_stdin};
 use clap::Parser;
 
 /// Bunyan is a simple and fast JSON logging library for node.js services,

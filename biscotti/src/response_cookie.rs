@@ -870,7 +870,7 @@ impl<'c> ResponseCookie<'c> {
         id
     }
 
-    fn fmt_parameters(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt_parameters(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(true) = self.http_only() {
             write!(f, "; HttpOnly")?;
         }
@@ -904,7 +904,7 @@ impl<'c> ResponseCookie<'c> {
 
         if let Some(time) = self.expires_datetime() {
             static GMT: std::sync::LazyLock<TimeZone> = std::sync::LazyLock::new(|| {
-                jiff::tz::TimeZone::get("GMT")
+                TimeZone::get("GMT")
                     .expect("Failed to fetch the 'GMT' timezone from the system database")
             });
 
@@ -928,7 +928,7 @@ impl fmt::Display for ResponseCookie<'_> {
     /// let cookie = ResponseCookie::new("foo", "bar").set_path("/");
     /// assert_eq!(cookie.to_string(), "foo=bar; Path=/");
     /// ```
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}={}", self.name(), self.value())?;
         self.fmt_parameters(f)
     }

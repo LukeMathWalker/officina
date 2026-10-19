@@ -70,7 +70,7 @@ fn abi_to_str(abi: &Abi) -> Option<&str> {
 }
 
 impl Debug for FunctionPointer {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write_fn_pointer_prefix(f, &self.abi, self.is_unsafe)?;
         write!(f, "fn(")?;
         for (i, input) in self.inputs.iter().enumerate() {

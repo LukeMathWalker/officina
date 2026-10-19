@@ -426,7 +426,7 @@ impl ShellOut {
         justified: bool,
     ) -> anyhow::Result<()> {
         let style = style.render();
-        let bold = (anstyle::Style::new() | anstyle::Effects::BOLD).render();
+        let bold = (Style::new() | anstyle::Effects::BOLD).render();
         let reset = anstyle::Reset.render();
 
         let mut buffer = Vec::new();
@@ -501,7 +501,7 @@ impl<D: fmt::Display> Default for Hyperlink<D> {
 }
 
 impl<D: fmt::Display> Hyperlink<D> {
-    pub fn open(&self) -> impl fmt::Display {
+    pub fn open(&self) -> impl fmt::Display + use<D> {
         if let Some(url) = self.url.as_ref() {
             format!("\x1B]8;;{url}\x1B\\")
         } else {
@@ -509,7 +509,7 @@ impl<D: fmt::Display> Hyperlink<D> {
         }
     }
 
-    pub fn close(&self) -> impl fmt::Display {
+    pub fn close(&self) -> impl fmt::Display + use<D> {
         if self.url.is_some() {
             "\x1B]8;;\x1B\\"
         } else {
@@ -551,7 +551,6 @@ mod imp {
 mod imp {
     use std::{cmp, mem, ptr};
 
-    use windows_sys::core::PCSTR;
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE;
     use windows_sys::Win32::Foundation::{GENERIC_READ, GENERIC_WRITE};
@@ -559,10 +558,11 @@ mod imp {
         CreateFileA, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
     };
     use windows_sys::Win32::System::Console::{
-        GetConsoleScreenBufferInfo, GetStdHandle, CONSOLE_SCREEN_BUFFER_INFO, STD_ERROR_HANDLE,
+        CONSOLE_SCREEN_BUFFER_INFO, GetConsoleScreenBufferInfo, GetStdHandle, STD_ERROR_HANDLE,
     };
+    use windows_sys::core::PCSTR;
 
-    pub(super) use super::{default_err_erase_line as err_erase_line, TtyWidth};
+    pub(super) use super::{TtyWidth, default_err_erase_line as err_erase_line};
 
     pub fn stderr_width() -> TtyWidth {
         unsafe {

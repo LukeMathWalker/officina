@@ -285,14 +285,6 @@ mod tests {
         log_error!(e, custom_field = ?a, custom_field2 = %b, ?a, %b, "Hello");
         // Using {{ }} to log fields using a constant as their name
         const FIELD: &str = "field";
-        log_error!(
-            e,
-            {
-                {
-                    FIELD
-                }
-            } = "value",
-            "Yay"
-        );
+        log_error!(e, { { FIELD } } = "value", "Yay");
     }
 }

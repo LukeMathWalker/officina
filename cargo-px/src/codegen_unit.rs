@@ -3,8 +3,8 @@
 use crate::config::{GenerateConfig, ManifestMetadata, PxConfig, VerifyConfig};
 use anyhow::Context;
 use guppy::{
-    graph::{BuildTargetKind, PackageGraph, PackageMetadata},
     PackageId,
+    graph::{BuildTargetKind, PackageGraph, PackageMetadata},
 };
 
 /// A package that relies on `cargo px` for code generation.

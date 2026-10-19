@@ -2,12 +2,15 @@
 name = "tracing-panic"
 version = "0.1.3"
 categories = ["development-tools::debugging"]
-edition = "2021"
+edition.workspace = true
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/tracing-panic"
 keywords = ["logging", "tracing", "panic", "telemetry", "hook"]
-license = "MIT/Apache-2.0"
-repository = "https://github.com/LukeMathWalker/officina"
+license.workspace = true
+repository.workspace = true
 description = "A panic hook that captures panic information as a tracing event"
+
+[lints]
+workspace = true
 
 [features]
 default = ["capture-backtrace"]

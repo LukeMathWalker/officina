@@ -1,8 +1,11 @@
 [package]
 name = "ui-tests"
 version = "0.0.0"
-edition = "2024"
+edition.workspace = true
 publish = false
+
+[lints]
+workspace = true
 
 [dependencies]
 fs-err = "3"

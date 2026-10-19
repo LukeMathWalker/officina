@@ -1,15 +1,15 @@
 [package]
 name = "tracing-bunyan-formatter"
 version = "0.3.11"
-authors = ["Luca Palmieri <rust@lpalmieri.com>"]
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
 
-license = "MIT/Apache-2.0"
+license.workspace = true
 
 documentation = "https://docs.rs/tracing-bunyan-formatter/"
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/tracing-bunyan-formatter"
 readme = "README.md"
-repository = "https://github.com/LukeMathWalker/officina"
+repository.workspace = true
 
 description = "A Bunyan formatter for the tracing crate"
 
@@ -47,9 +47,8 @@ tracing = { version = "0.1.13", default-features = false, features = ["log", "st
 # The `valuable` tests derive `Valuable` on test types.
 valuable = { version = "0.1.0", features = ["derive"] }
 
-[lints.rust]
-# `tracing`'s `valuable` support is gated behind `--cfg tracing_unstable`.
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tracing_unstable)"] }
+[lints]
+workspace = true
 
 [[example]]
 name = "valuable"

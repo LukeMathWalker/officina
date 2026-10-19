@@ -1,7 +1,7 @@
 [package]
 name = "cheaderdiff"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 license = "Apache-2.0"
 publish = false
 
@@ -13,11 +13,19 @@ tree-sitter-c = "0.23"
 [dev-dependencies]
 insta = "1"
 
+# The workspace's baseline (`[workspace.lints]`), plus this crate's own lints.
+[lints.rust]
+rust_2018_idioms = { level = "warn", priority = -1 }
+unused_lifetimes = "warn"
+unused_qualifications = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tracing_unstable)"] }
+
 [lints.clippy]
+dbg_macro = "warn"
 # Use `#[expect]` instead of `#[allow]` so we are warned when they become obsolete.
 allow_attributes = "warn"
 
 [lints.rustdoc]
 # Our doc comments are designed for contributors, not end-users.
 # Therefore there's no issue with private intra-doc links.
-private-intra-doc-links = "allow"
+private_intra_doc_links = "allow"

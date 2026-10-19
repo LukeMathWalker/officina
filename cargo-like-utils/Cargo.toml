@@ -1,11 +1,14 @@
 [package]
 name = "cargo-like-utils"
 version = "0.2.2"
-edition = "2021"
+edition.workspace = true
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/cargo-like-utils"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/LukeMathWalker/officina"
+license.workspace = true
+repository.workspace = true
 description = "A colletion of utils to build CLIs with an output style and a behaviour similar to `cargo`"
+
+[lints]
+workspace = true
 
 [dependencies]
 anstream = "0.6.18"

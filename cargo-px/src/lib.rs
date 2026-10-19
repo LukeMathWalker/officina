@@ -6,7 +6,7 @@ use codegen_unit::CodegenUnit;
 use guppy::graph::{PackageGraph, PackageMetadata};
 use targets::determine_targets;
 
-use crate::codegen_unit::{extract_codegen_units, BinaryInvocation};
+use crate::codegen_unit::{BinaryInvocation, extract_codegen_units};
 
 mod codegen_plan;
 mod codegen_unit;
@@ -145,8 +145,8 @@ fn compute_filtered_codegen_plan<'a>(
 
 #[tracing::instrument(name = "Verify crate", skip_all, fields(crate_name = %package_metadata.name()))]
 fn verify_crate(
-    verifier: &BinaryInvocation,
-    package_metadata: &PackageMetadata,
+    verifier: &BinaryInvocation<'_>,
+    package_metadata: &PackageMetadata<'_>,
     cargo_path: &str,
     workspace_path: &Path,
     shell: &mut Shell,
@@ -232,7 +232,7 @@ fn verify_crate(
 
 #[tracing::instrument(name = "Generate crate", skip_all, fields(crate_name = %unit.package_metadata.name()))]
 fn generate_crate(
-    unit: &codegen_unit::CodegenUnit,
+    unit: &CodegenUnit<'_>,
     cargo_path: &str,
     workspace_path: &Path,
     shell: &mut Shell,

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use clap::{Arg, Command};
-use guppy::{graph::PackageGraph, PackageId};
+use guppy::{PackageId, graph::PackageGraph};
 
 /// Determine which sub-units should be built from the package graph.
 ///
@@ -26,7 +26,9 @@ pub(crate) fn determine_targets(
 
     if tracing::event_enabled!(tracing::Level::DEBUG) {
         if package_specs.is_empty() {
-            tracing::debug!("No package specs provided, determining the target based on the current working directory");
+            tracing::debug!(
+                "No package specs provided, determining the target based on the current working directory"
+            );
         } else {
             tracing::debug!(
                 ?package_specs,

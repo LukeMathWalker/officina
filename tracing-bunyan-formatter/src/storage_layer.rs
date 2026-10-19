@@ -4,8 +4,8 @@ use std::time::Instant;
 use tracing::field::{Field, Visit};
 use tracing::span::{Attributes, Record};
 use tracing::{Id, Subscriber};
-use tracing_subscriber::layer::Context;
 use tracing_subscriber::Layer;
+use tracing_subscriber::layer::Context;
 
 /// This layer is only concerned with information storage, it does not do any formatting or provide any output.
 ///
@@ -135,7 +135,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
             // We create a copy of the parent visitor!
             let mut extensions = parent_span.extensions_mut();
             extensions
-                .get_mut::<JsonStorage>()
+                .get_mut::<JsonStorage<'_>>()
                 .map(|v| v.to_owned())
                 .unwrap_or_default()
         } else {
@@ -159,7 +159,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
         // on creation (`new_span` method), hence it's safe to unwrap the Option.
         let mut extensions = span.extensions_mut();
         let visitor = extensions
-            .get_mut::<JsonStorage>()
+            .get_mut::<JsonStorage<'_>>()
             .expect("Visitor not found on 'record', this is a bug");
         // Register all new fields
         values.record(visitor);
@@ -202,7 +202,7 @@ impl<S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>> Layer
 
         let mut extensions_mut = span.extensions_mut();
         let visitor = extensions_mut
-            .get_mut::<JsonStorage>()
+            .get_mut::<JsonStorage<'_>>()
             .expect("Visitor not found on 'record', this is a bug");
 
         if let Ok(elapsed) = serde_json::to_value(elapsed_milliseconds) {
