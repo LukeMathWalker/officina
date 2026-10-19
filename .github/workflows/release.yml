@@ -167,7 +167,8 @@ jobs:
       - name: Build
         id: build
         run: |
-          dist build --tag="$TAG" --print=linkage --output-format=json $DIST_ARGS > dist-manifest.json
+          read -ra dist_args <<< "$DIST_ARGS"
+          dist build --tag="$TAG" --print=linkage --output-format=json "${dist_args[@]}" > dist-manifest.json
           {
             echo "paths<<EOF"
             dist print-upload-files-from-manifest --manifest dist-manifest.json
@@ -286,7 +287,7 @@ jobs:
           ASSETS: ${{ runner.temp }}/assets
         run: |
           chmod +x "$OFFICINA_CI"
-          "$OFFICINA_CI" release stage --manifest "$RELEASE/manifest.json" --assets "$ASSETS" $DRY_RUN
+          "$OFFICINA_CI" release stage --manifest "$RELEASE/manifest.json" --assets "$ASSETS" ${DRY_RUN:+"$DRY_RUN"}
 
   publish:
     name: Publish to crates.io
@@ -326,7 +327,7 @@ jobs:
           RELEASE: ${{ runner.temp }}/release
         run: |
           chmod +x "$OFFICINA_CI"
-          "$OFFICINA_CI" release publish --manifest "$RELEASE/manifest.json" $DRY_RUN
+          "$OFFICINA_CI" release publish --manifest "$RELEASE/manifest.json" ${DRY_RUN:+"$DRY_RUN"}
 
   tag:
     name: Tag and publish GitHub releases
@@ -356,7 +357,7 @@ jobs:
           RELEASE: ${{ runner.temp }}/release
         run: |
           chmod +x "$OFFICINA_CI"
-          "$OFFICINA_CI" release tag --manifest "$RELEASE/manifest.json" $DRY_RUN
+          "$OFFICINA_CI" release tag --manifest "$RELEASE/manifest.json" ${DRY_RUN:+"$DRY_RUN"}
 
   # The release PR isn't refreshed while a release is pending (see `release-pr.yml`).
   refresh-release-pr:

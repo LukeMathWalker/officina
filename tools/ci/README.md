@@ -29,6 +29,8 @@ cargo ci release plan
 3. **Project workflows.** A project needing more than that has its own reusable
    workflow, `.github/workflows/<project>.yml`, called by `ci.yml` when the
    project is affected (e.g. `cheadergen.yml`).
+4. **Always.** Whatever the selection: `Formatting` (dprint) and `Workflow lint`
+   (actionlint, with shellcheck for `run` scripts, and zizmor).
 
 `CI result` aggregates every job: it is the check to require on `main`.
 
