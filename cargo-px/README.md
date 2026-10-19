@@ -1,9 +1,8 @@
-<div class="oranda-hide">
 <h1 align="center">cargo-px</h1>
 <div align="center">
- <strong>
-   Cargo Power eXtensions
- </strong>
+  <strong>
+    Cargo Power eXtensions
+  </strong>
 </div>
 
 <br />
@@ -11,21 +10,22 @@
 <div align="center">
   <!-- Crates version -->
   <a href="https://crates.io/crates/cargo-px">
-    <img src="https://img.shields.io/crates/v/cargo-px.svg?style=flat-square"
-    alt="Crates.io version" />
+    <img
+      src="https://img.shields.io/crates/v/cargo-px.svg?style=flat-square"
+      alt="Crates.io version"
+    />
   </a>
   <!-- Downloads -->
   <a href="https://crates.io/crates/cargo-px">
-    <img src="https://img.shields.io/crates/d/cargo-px.svg?style=flat-square"
-      alt="Download" />
+    <img
+      src="https://img.shields.io/crates/d/cargo-px.svg?style=flat-square"
+      alt="Download"
+    />
   </a>
 </div>
-<br/>
-</div>
+<br />
 
 Check out the [announcement post](https://lpalmieri.com/posts/cargo-px) to learn more about `cargo-px` and the problems it solves with respect to code generation in Rust projects.
-
-<div class="oranda-hide">
 
 # Table of Contents
 
@@ -37,9 +37,14 @@ Check out the [announcement post](https://lpalmieri.com/posts/cargo-px) to learn
 
 ## How To Install
 
-Check out the instructions in the [release page](https://lukemathwalker.github.io/cargo-px/)
+Using `cargo`:
 
-</div>
+```bash
+cargo install --locked cargo-px
+```
+
+Alternatively, download a prebuilt binary, or the shell and PowerShell installers,
+from the [latest release](https://github.com/LukeMathWalker/officina/releases?q=cargo-px).
 
 ## How to use
 
