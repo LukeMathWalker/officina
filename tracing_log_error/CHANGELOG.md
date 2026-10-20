@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6](https://github.com/LukeMathWalker/officina/compare/tracing_log_error-v0.1.5...tracing_log_error-v0.1.6) - 2026-10-20
+
+### ⚙️ Other
+
+- _(workspace)_ align crate manifests ([#48](https://github.com/LukeMathWalker/officina/pull/48)) (by @LukeMathWalker)
+
+### Contributors
+
+- @LukeMathWalker
+
 ## [0.1.5](https://github.com/LukeMathWalker/officina/compare/tracing_log_error-v0.1.4...tracing_log_error-v0.1.5) - 2026-10-12
 
 ### ⚙️ Other

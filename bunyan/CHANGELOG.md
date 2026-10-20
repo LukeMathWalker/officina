@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.11](https://github.com/LukeMathWalker/officina/compare/bunyan-v0.1.10...bunyan-v0.1.11) - 2026-10-20
+
+### ⚙️ Other
+
+- _(workspace)_ align crate manifests ([#48](https://github.com/LukeMathWalker/officina/pull/48)) (by @LukeMathWalker)
+
+### Contributors
+
+- @LukeMathWalker
+
 ## [0.1.10](https://github.com/LukeMathWalker/officina/compare/bunyan-v0.1.9...bunyan-v0.1.10) - 2026-10-12
 
 ### ⚙️ Other

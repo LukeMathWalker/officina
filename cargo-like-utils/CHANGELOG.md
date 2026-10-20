@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3](https://github.com/LukeMathWalker/officina/compare/cargo-like-utils-v0.2.2...cargo-like-utils-v0.2.3) - 2026-10-20
+
+### ⚙️ Other
+
+- _(workspace)_ align crate manifests ([#48](https://github.com/LukeMathWalker/officina/pull/48)) (by @LukeMathWalker)
+
+### Contributors
+
+- @LukeMathWalker
+
 ## [0.2.2](https://github.com/LukeMathWalker/officina/compare/cargo-like-utils-v0.2.1...cargo-like-utils-v0.2.2) - 2026-10-12
 
 ### ⚙️ Other
