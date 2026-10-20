@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5](https://github.com/LukeMathWalker/officina/compare/biscotti-v0.4.4...biscotti-v0.4.5) - 2026-10-20
+
+### ⚙️ Other
+
+- _(workspace)_ align crate manifests ([#48](https://github.com/LukeMathWalker/officina/pull/48)) (by @LukeMathWalker)
+
+### Contributors
+
+- @LukeMathWalker
+
 ## [0.4.4](https://github.com/LukeMathWalker/officina/compare/biscotti-v0.4.3...biscotti-v0.4.4) - 2026-10-12
 
 ### ⚙️ Other

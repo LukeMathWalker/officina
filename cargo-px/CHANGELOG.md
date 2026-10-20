@@ -26,6 +26,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.22](https://github.com/LukeMathWalker/officina/compare/cargo-px-v0.1.21...cargo-px-v0.1.22) - 2026-10-20
+
+### ⚙️ Other
+
+- _(workspace)_ align crate manifests ([#48](https://github.com/LukeMathWalker/officina/pull/48)) (by @LukeMathWalker)
+- _(cargo-px)_ drop the unused oranda site workflow ([#44](https://github.com/LukeMathWalker/officina/pull/44)) (by @LukeMathWalker)
+
+### Contributors
+
+- @LukeMathWalker
+
 ## [0.1.21](https://github.com/LukeMathWalker/officina/compare/cargo-px-v0.1.20...cargo-px-v0.1.21) - 2026-10-12
 
 ### ⚙️ Other

@@ -1,6 +1,6 @@
 [package]
 name = "cargo_px_env"
-version = "0.1.1"
+version = "0.1.2"
 categories = ["development-tools::cargo-plugins"]
 edition.workspace = true
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/cargo-px/cargo_px_env"
