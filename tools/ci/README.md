@@ -86,7 +86,9 @@ In CI:
   push to `main` (release-plz, with a GitHub App's token so that CI runs on it:
   the `RELEASE_PLZ_APP_CLIENT_ID` variable and `RELEASE_PLZ_APP_PRIVATE_KEY` secret,
   in the `release-pr` environment, restricted to `main`). It skips while a release
-  is pending: the release workflow refreshes it when done.
+  is pending: the release workflow refreshes it when done. It also points
+  cheadergen's install docs to the new `cheadergen_cli` version
+  (`cheadergen/scripts/bump_docs_version.sh`), which release-plz doesn't do.
 - `.github/workflows/release.yml` is started by CI once it passes on `main`
   (with `workflow_dispatch`: trusted publishing rejects `workflow_run`): plan, package
   and build binaries (read-only), stage, publish (trusted publishing, in the
