@@ -325,7 +325,7 @@ impl<A> RustdocGlobalFsCache<A> {
 }
 
 /// Return the output of `cargo --verbose --version` for the nightly toolchain,
-/// which can be used to fingerprint the toolchain used by Pavex.
+/// which can be used to fingerprint the toolchain used to generate the JSON docs.
 pub(crate) fn cargo_fingerprint(toolchain_name: &str) -> Result<String, anyhow::Error> {
     let err_msg = || {
         format!(

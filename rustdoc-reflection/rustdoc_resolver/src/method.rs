@@ -18,7 +18,7 @@ use crate::GenericBindings;
 use crate::errors::*;
 use crate::resolve_type::{TypeAliasResolution, resolve_type};
 
-/// Convert a method item retrieved from `rustdoc`'s JSON output to Pavex's internal
+/// Convert a method item retrieved from `rustdoc`'s JSON output to our internal
 /// representation for callables (i.e. methods and functions).
 ///
 /// # Input constraints
