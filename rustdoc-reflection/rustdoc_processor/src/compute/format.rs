@@ -15,7 +15,7 @@ pub fn check_format<R: Read>(raw_json: R) -> Result<(), anyhow::Error> {
     };
     if min_krate.format_version != rustdoc_types::FORMAT_VERSION {
         anyhow::bail!(
-            "The JSON docs use the `{}` format version, but `pavexc` expected `{}`.",
+            "The JSON docs use the `{}` format version, but `{}` was expected.",
             min_krate.format_version,
             rustdoc_types::FORMAT_VERSION,
         );
