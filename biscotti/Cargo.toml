@@ -1,6 +1,6 @@
 [package]
 name = "biscotti"
-version = "0.4.4"
+version = "0.4.5"
 authors.workspace = true
 categories = ["web-programming::http-server"]
 edition.workspace = true
