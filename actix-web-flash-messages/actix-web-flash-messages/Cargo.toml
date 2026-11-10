@@ -1,6 +1,6 @@
 [package]
 name = "actix-web-flash-messages"
-version = "0.5.1"
+version = "0.5.2"
 authors.workspace = true
 categories = ["asynchronous"]
 documentation = "https://docs.rs/actix-web-flash-messages/"

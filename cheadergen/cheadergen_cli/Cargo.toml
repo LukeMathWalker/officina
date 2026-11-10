@@ -1,6 +1,6 @@
 [package]
 name = "cheadergen_cli"
-version = "0.3.3"
+version = "0.3.4"
 categories = ["external-ffi-bindings", "development-tools::ffi"]
 documentation = "https://cheadergen.com"
 edition.workspace = true

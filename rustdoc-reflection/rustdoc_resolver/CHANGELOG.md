@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/LukeMathWalker/officina/compare/rustdoc_resolver-v0.1.2...rustdoc_resolver-v0.1.3) - 2026-11-10
+
+### 🐛 Bug Fixes
+
+- _(rustdoc-reflection)_ stop mentioning Pavex in errors and doc comments ([#51](https://github.com/LukeMathWalker/officina/pull/51)) (by @memark)
+
+### ⚙️ Other
+
+- _(workspace)_ align crate manifests ([#48](https://github.com/LukeMathWalker/officina/pull/48)) (by @LukeMathWalker)
+
+### Contributors
+
+- @memark
+- @LukeMathWalker
+
 ## [0.1.2](https://github.com/LukeMathWalker/officina/compare/rustdoc_resolver-v0.1.1...rustdoc_resolver-v0.1.2) - 2026-10-12
 
 ### ⚙️ Other

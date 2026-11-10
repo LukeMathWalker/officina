@@ -1,6 +1,6 @@
 [package]
 name = "cargo-like-utils"
-version = "0.2.2"
+version = "0.2.3"
 edition.workspace = true
 homepage = "https://github.com/LukeMathWalker/officina/tree/main/cargo-like-utils"
 license.workspace = true
